@@ -1,0 +1,673 @@
+/* Synthesizer Sim Hardware-Accurate Emulator Styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Arial", sans-serif;
+  background: #0a0a0a;
+  color: #ffffff;
+  overflow-x: auto;
+  min-height: 100vh;
+  margin: 0;
+  padding: 20px;
+}
+
+.synth-hardware {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  background: linear-gradient(145deg, #3a3020, #2a2418);
+  border-radius: 15px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  padding: 40px;
+  border: 3px solid #4a3828;
+}
+
+/* Top Row Layout */
+.top-row {
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  gap: 30px;
+  margin-bottom: 30px;
+  align-items: start;
+}
+
+/* Left Controls */
+.left-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.master-volume {
+  text-align: center;
+}
+
+.modulation-section h4 {
+  color: #cccccc;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 15px;
+  text-align: center;
+  border-bottom: 1px solid #444;
+  padding-bottom: 5px;
+}
+
+.mod-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.mod-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
+.mod-btn {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border: 1px solid #444;
+  color: #cccccc;
+  padding: 8px 4px;
+  font-size: 8px;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+
+.mod-btn:hover {
+  background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+  color: #ffffff;
+}
+
+/* Center Controls - Digital Display */
+.center-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.display-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  min-height: 180px;
+}
+
+.menu-controls-top,
+.menu-controls-bottom {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+  margin: 15px 0;
+}
+
+.digital-display {
+  background: #000000;
+  border: 2px solid #444;
+  border-radius: 10px;
+  padding: 5px;
+  margin: 10px 0;
+}
+
+.display-screen {
+  width: 250px;
+  height: 200px;
+  background: #0a1a2a;
+  color: #52e3c2; /* LCD display color */
+  font-family: "Courier New", monospace;
+  font-weight: bold;
+  text-align: center;
+  padding: 12px 15px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 15px rgba(0, 255, 136, 0.3);
+  border: 2px solid #003344;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.parameter-name {
+  font-size: 14px;
+  margin-bottom: 5px;
+  opacity: 0.9;
+  letter-spacing: 2px;
+}
+
+.parameter-value {
+  font-size: 26px;
+  letter-spacing: 3px;
+  text-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+  margin-bottom: 10px;
+}
+
+.audio-visualization {
+  width: 220px;
+  height: 70px;
+  background: rgba(0, 30, 30, 0.5);
+  /* border: 1px solid #52e3c277; */
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.program-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.prog-btn {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border: 1px solid #444;
+  color: #cccccc;
+  padding: 6px 12px;
+  font-size: 9px;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.prog-btn:hover {
+  background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+  color: #ffffff;
+}
+
+/* Right Controls - Logo */
+.right-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.logo-section {
+  text-align: center;
+  position: relative;
+  z-index: 10; /* Ensure logo appears above other elements */
+}
+
+.synth-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 20px;
+  margin-right: 10px;
+  text-align: left;
+}
+
+.synth-text {
+  font-family: "Arial Black", sans-serif;
+  font-size: 40px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: none;
+  letter-spacing: 2px;
+  line-height: 1;
+  margin-bottom: 0;
+  display: block;
+}
+
+.emulator-text {
+  font-family: "Arial", sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: transparent;
+  text-shadow: none;
+  letter-spacing: 2px;
+  line-height: 1;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke-width: 1px;
+  -webkit-text-stroke-color: #ffffff;
+  margin-top: -2px;
+  display: block;
+  padding-bottom: 5px;
+}
+
+/* Main Controls Layout */
+.main-controls {
+  display: grid;
+  grid-template-columns: 250px 200px 2fr 1.5fr 1.5fr;
+  gap: 25px;
+  margin-bottom: 30px;
+}
+
+/* Section Styling - Synthesizer Hardware Style */
+.section {
+  background: transparent;
+  border: 2px solid #ffffff;
+  border-radius: 12px;
+  padding: 25px 15px 15px 15px;
+  position: relative;
+  margin-top: 15px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.section h3 {
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0;
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(145deg, #3a3020, #2a2418);
+  padding: 2px 12px;
+  white-space: nowrap;
+}
+
+.section-number {
+  background: linear-gradient(145deg, #ff6600, #cc5500);
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  margin: 0 auto 15px;
+  box-shadow: 0 2px 6px rgba(255, 102, 0, 0.4);
+}
+
+/* Knobs */
+.knob-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.knob-container label {
+  font-size: 8px;
+  color: #aaaaaa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  line-height: 1.2;
+  font-weight: bold;
+}
+
+.knob-row {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.knob {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #2a2a2a, #000000),
+    linear-gradient(145deg, #1a1a1a, #000000);
+  border: 1px solid #c0c0c0;
+  cursor: grab;
+  position: relative;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+  transition: all 0.2s;
+}
+
+.knob.large {
+  width: 48px;
+  height: 48px;
+}
+
+.knob:active {
+  cursor: grabbing;
+}
+
+/* White position indicator notch */
+.knob::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 8px;
+  background: #ffffff;
+  border-radius: 1px;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.8);
+}
+
+.knob:hover {
+  background: radial-gradient(circle at 30% 30%, #3a3a3a, #111111),
+    linear-gradient(145deg, #2a2a2a, #000000);
+  border-color: #d0d0d0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Waveform Indicators */
+.waveform-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.wave-indicator {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border: 1px solid #444;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wave-indicator.active {
+  background: linear-gradient(145deg, #ff6600, #cc5500);
+  color: white;
+  box-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
+}
+
+/* Buttons */
+.osc-buttons,
+.lfo-buttons,
+.clock-buttons,
+.filter-buttons {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.osc-btn,
+.lfo-btn,
+.clock-btn,
+.filter-btn {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border: 1px solid #444;
+  color: #cccccc;
+  padding: 6px 10px;
+  font-size: 8px;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.osc-btn:hover,
+.lfo-btn:hover,
+.clock-btn:hover,
+.filter-btn:hover {
+  background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+  color: #ffffff;
+}
+
+.filter-btn.active {
+  background: linear-gradient(145deg, #ff6600, #cc5500);
+  color: white;
+  box-shadow: 0 0 8px rgba(255, 102, 0, 0.4);
+}
+
+/* LED Indicators */
+.lfo-indicators {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.indicator-row {
+  display: flex;
+  gap: 4px;
+}
+
+.led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #333;
+  border: 1px solid #555;
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+.led.active {
+  background: #00ff00;
+  box-shadow: 0 0 6px rgba(0, 255, 0, 0.6),
+    inset 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+/* Keyboard Section */
+.keyboard-section {
+  margin-top: 30px;
+  background: linear-gradient(145deg, #2a1f15, #1a120a);
+  border: 2px solid #3a2820;
+  border-radius: 10px;
+  padding: 25px;
+}
+
+.keyboard {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+
+.octave {
+  position: relative;
+  display: flex;
+}
+
+.key {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.1s;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 10px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.white-key {
+  width: 40px;
+  height: 120px;
+  background: linear-gradient(to bottom, #ffffff, #f0f0f0);
+  border: 1px solid #ccc;
+  border-radius: 0 0 4px 4px;
+  color: #666;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.white-key:hover {
+  background: linear-gradient(to bottom, #f8f8f8, #e8e8e8);
+}
+
+.white-key.active {
+  background: linear-gradient(to bottom, #e0e0e0, #d0d0d0);
+  transform: translateY(2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.black-key {
+  position: absolute;
+  width: 28px;
+  height: 80px;
+  background: linear-gradient(to bottom, #444444, #111111);
+  border: 1px solid #000;
+  border-radius: 0 0 2px 2px;
+  color: #ccc;
+  z-index: 1;
+  font-size: 10px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.black-key:hover {
+  background: linear-gradient(to bottom, #555555, #222222);
+}
+
+.black-key.active {
+  background: linear-gradient(to bottom, #333333, #000000);
+  transform: translateY(2px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Sequencer Section */
+.sequencer-section {
+  grid-column: 2;
+}
+
+.seq-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.seq-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  width: 100%;
+}
+
+.seq-btn {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border: 1px solid #444;
+  color: #cccccc;
+  padding: 6px 8px;
+  font-size: 7px;
+  font-weight: bold;
+  border-radius: 3px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.seq-btn:hover {
+  background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+  color: #ffffff;
+}
+
+.seq-btn.active {
+  background: linear-gradient(145deg, #ff6600, #cc5500);
+  color: white;
+  box-shadow: 0 0 8px rgba(255, 102, 0, 0.4);
+}
+
+/* Envelopes Section */
+.envelopes-section {
+  grid-column: 5;
+}
+
+.env-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.env-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.env-column .section-number {
+  background: linear-gradient(145deg, #0066cc, #004499);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 6px rgba(0, 102, 204, 0.4);
+}
+
+/* LFO Grid Updates */
+.lfo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lfo-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 1400px) {
+  .main-controls {
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .top-row {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+@media (max-width: 1000px) {
+  .main-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .top-row {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .knob-row {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .keyboard {
+    transform: scale(0.8);
+    transform-origin: center;
+  }
+
+  .synth-hardware {
+    padding: 15px;
+    margin: 10px;
+  }
+}
