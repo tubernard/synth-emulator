@@ -40,6 +40,45 @@ const DISPLAY_SCALES = {
   },
 };
 
+// LFO State Management
+interface LFOState {
+  shape: string;
+  frequency: number;
+  amount: number;
+  sync: string | null;
+  destination: string;
+  active: boolean;
+}
+
+const lfoStates: { [key: number]: LFOState } = {
+  1: {
+    shape: "triangle",
+    frequency: 50,
+    amount: 0,
+    sync: null,
+    destination: "cutoff",
+    active: false,
+  },
+  2: {
+    shape: "triangle",
+    frequency: 50,
+    amount: 0,
+    sync: null,
+    destination: "cutoff",
+    active: false,
+  },
+};
+
+let currentLFO = 1; // Currently selected LFO
+const lfoDestinations = [
+  "cutoff",
+  "resonance",
+  "osc1-freq",
+  "osc2-freq",
+  "amp",
+];
+let currentDestIndex = 0;
+
 export function setupUI(synth: SynthEngine) {
   // Setup knob controls
   setupKnobs(synth);
@@ -56,6 +95,12 @@ export function setupUI(synth: SynthEngine) {
   // Setup filter type buttons
   setupFilterButtons(synth);
 
+  // Setup LFO controls
+  setupLFOControls(synth);
+
+  // Setup volume meter
+  setupVolumeMeter(synth);
+
   // Setup waveform visualization
   setupWaveformVisualization(synth);
 }
@@ -68,6 +113,7 @@ function setupKnobs(synth: SynthEngine) {
     let isDragging = false;
     let startY = 0;
     let startValue = 0;
+    let animationFrameId: number | null = null;
 
     const min = parseFloat(element.dataset.min || "0");
     const max = parseFloat(element.dataset.max || "1");
@@ -89,26 +135,49 @@ function setupKnobs(synth: SynthEngine) {
     document.addEventListener("mousemove", (e) => {
       if (!isDragging) return;
 
-      const deltaY = startY - e.clientY;
-      const sensitivity = 0.005;
-      const range = max - min;
-      const deltaValue = deltaY * sensitivity * range;
+      // Cancel previous animation frame if it exists
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
 
-      let newValue = startValue + deltaValue;
-      newValue = Math.max(min, Math.min(max, newValue));
+      // Schedule update on next frame for smooth animation
+      animationFrameId = requestAnimationFrame(() => {
+        const deltaY = startY - e.clientY;
+        const sensitivity = 0.005;
+        const range = max - min;
+        const deltaValue = deltaY * sensitivity * range;
 
-      element.dataset.value = newValue.toString();
-      updateKnobVisual(element, newValue, min, max);
-      updateDisplay(element.id, newValue, displayScale);
+        let newValue = startValue + deltaValue;
+        newValue = Math.max(min, Math.min(max, newValue));
 
-      // Update synthesizer parameter
-      updateSynthParameter(synth, element.id, newValue, displayScale);
+        element.dataset.value = newValue.toString();
+        updateKnobVisual(element, newValue, min, max);
+        updateDisplay(element.id, newValue, displayScale);
+
+        // Update synthesizer parameter
+        console.log(
+          "Knob drag - ID:",
+          element.id,
+          "Value:",
+          newValue,
+          "DisplayScale:",
+          displayScale
+        );
+        updateSynthParameter(synth, element.id, newValue, displayScale);
+
+        animationFrameId = null;
+      });
     });
 
     document.addEventListener("mouseup", () => {
       if (isDragging) {
         isDragging = false;
         element.style.cursor = "grab";
+        // Cancel any pending animation frame
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
       }
     });
   });
@@ -196,8 +265,9 @@ function getDisplayName(section: string, param: string): string {
     "lfo1-amount": "LFO 1 AMT",
     "lfo2-rate": "LFO 2 RATE",
     "lfo2-amount": "LFO 2 AMT",
+    "lfo-frequency": "LFO FREQ",
+    "lfo-amount": "LFO AMT",
     "seq-tempo": "SEQ TEMPO",
-    "poly-mod": "POLY MOD",
     "master-volume": "MASTER VOL",
   };
 
@@ -226,10 +296,54 @@ function updateSynthParameter(
 
   switch (section) {
     case "osc1":
+      // Map OSC1 parameters
+      switch (param) {
+        case "freq":
+          synth.updateParameter(section, "frequency", processedValue);
+          break;
+        case "fine":
+          synth.updateParameter(section, "fine", processedValue);
+          break;
+        case "shape-mod":
+          synth.updateParameter(section, "shapeMod", processedValue);
+          break;
+        case "sub-octave":
+          synth.updateParameter(section, "subOctave", processedValue);
+          break;
+        case "noise":
+          synth.updateParameter(section, "noise", processedValue);
+          break;
+        default:
+          synth.updateParameter(section, param, processedValue);
+          break;
+      }
+      break;
     case "osc2":
-      // Map "freq" to "frequency" for oscillator frequency
-      const oscParam = param === "freq" ? "frequency" : param;
-      synth.updateParameter(section, oscParam, processedValue);
+      // Map OSC2 parameters
+      switch (param) {
+        case "freq":
+          synth.updateParameter(section, "frequency", processedValue);
+          break;
+        case "fine":
+          synth.updateParameter(section, "fine", processedValue);
+          break;
+        case "shape-mod":
+          synth.updateParameter(section, "shapeMod", processedValue);
+          break;
+        case "mix":
+          synth.updateParameter(section, "mix", processedValue);
+          break;
+        case "slop":
+          synth.updateParameter(section, "slop", processedValue);
+          break;
+        case "sync":
+          // Convert between UI boolean (0/1) and internal boolean (0/1)
+          synth.updateParameter(section, "sync", processedValue ? 1 : 0);
+          break;
+        default:
+          synth.updateParameter(section, param, processedValue);
+          break;
+      }
       break;
     case "filter":
       console.log(
@@ -265,38 +379,68 @@ function updateSynthParameter(
       const lfo2Param = param === "rate" ? "rate" : "amount";
       synth.updateParameter("lfo2", lfo2Param, processedValue);
       break;
+    case "lfo":
+      // New unified LFO controls - route to current LFO
+      if (param === "frequency") {
+        lfoStates[currentLFO].frequency = value;
+        synth.updateParameter(`lfo${currentLFO}`, "frequency", processedValue);
+      } else if (param === "amount") {
+        lfoStates[currentLFO].amount = value;
+        lfoStates[currentLFO].active = value > 0;
+        synth.updateParameter(`lfo${currentLFO}`, "amount", processedValue);
+      }
+      break;
     case "seq":
       // Sequencer parameters
       synth.updateParameter("sequencer", param, processedValue);
       break;
-    case "poly":
-      // Poly modulation
-      synth.updateParameter("polyMod", param, processedValue);
-      break;
     case "master":
-      // Master controls
-      synth.updateParameter("master", param, processedValue);
+      // Master controls - pass raw percentage value (0-99), don't convert
+      synth.updateParameter("master", param, value);
       break;
   }
 }
 
 function setupWaveformButtons(synth: SynthEngine) {
-  const waveButtons = document.querySelectorAll(".wave-btn");
+  // Setup shape buttons for cycling through waveforms
+  const shapeButtons = document.querySelectorAll(".shape-btn");
 
-  waveButtons.forEach((button) => {
+  // Define waveforms in cycle order
+  const waveforms = ["sawtooth", "triangle", "square", "pulse"];
+
+  shapeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const element = button as HTMLElement;
       const osc = element.dataset.osc as string;
-      const wave = element.dataset.wave as string;
+      const currentWave = element.dataset.currentWave as string;
 
-      // Update button states
-      const siblingButtons =
-        element.parentElement?.querySelectorAll(".wave-btn");
-      siblingButtons?.forEach((btn) => btn.classList.remove("active"));
-      element.classList.add("active");
+      // Find next waveform in cycle
+      const currentIndex = waveforms.indexOf(currentWave);
+      const nextIndex = (currentIndex + 1) % waveforms.length;
+      const nextWave = waveforms[nextIndex];
+
+      // Update button's current wave
+      element.dataset.currentWave = nextWave;
+
+      // Update LED indicators for this oscillator
+      const oscContainer =
+        element.closest(".osc-row") ||
+        element.closest(".shape-waveform-centered");
+      if (oscContainer) {
+        const leds = oscContainer.querySelectorAll(".led-indicator");
+        leds.forEach((led) => {
+          const ledElement = led as HTMLElement;
+          const waveType = ledElement.dataset.wave;
+          if (waveType === nextWave) {
+            ledElement.classList.add("active");
+          } else {
+            ledElement.classList.remove("active");
+          }
+        });
+      }
 
       // Update synth parameter
-      synth.updateParameter(osc, "waveform", wave);
+      synth.updateParameter(osc, "waveform", nextWave);
 
       // Update display
       updateDisplay(`${osc}-waveform`, 0, "raw");
@@ -304,39 +448,39 @@ function setupWaveformButtons(synth: SynthEngine) {
       const paramValueElement = document.getElementById("param-value");
       if (paramNameElement && paramValueElement) {
         paramNameElement.textContent = `${osc.toUpperCase()} WAVE`;
-        paramValueElement.textContent = wave.toUpperCase();
+        paramValueElement.textContent = nextWave.toUpperCase();
       }
     });
   });
-}
 
-function setupFilterButtons(synth: SynthEngine) {
-  const filterButtons = document.querySelectorAll(".filter-btn");
+  // Setup SYNC button for OSC 2
+  const syncButton = document.getElementById("osc2-sync");
+  if (syncButton) {
+    let syncActive = false;
 
-  filterButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const element = button as HTMLElement;
-      const type = element.dataset.type as string;
-
-      // Update button states
-      const siblingButtons =
-        element.parentElement?.querySelectorAll(".filter-btn");
-      siblingButtons?.forEach((btn) => btn.classList.remove("active"));
-      element.classList.add("active");
+    syncButton.addEventListener("click", () => {
+      syncActive = !syncActive;
+      syncButton.classList.toggle("active", syncActive);
 
       // Update synth parameter
-      synth.updateParameter("filter", "type", type);
+      synth.updateParameter("osc2", "sync", syncActive ? 1 : 0);
 
       // Update display
       const paramNameElement = document.getElementById("param-name");
       const paramValueElement = document.getElementById("param-value");
       if (paramNameElement && paramValueElement) {
-        paramNameElement.textContent = "FILTER TYPE";
-        paramValueElement.textContent =
-          type === "lowpass" ? "2 POLE" : "4 POLE";
+        paramNameElement.textContent = "OSC2 SYNC";
+        paramValueElement.textContent = syncActive ? "ON" : "OFF";
       }
     });
-  });
+  }
+}
+
+function setupFilterButtons(synth: SynthEngine) {
+  // Filter is now fixed as a 2-pole lowpass filter
+  synth.updateParameter("filter", "type", "lowpass");
+
+  // Function remains for compatibility but buttons have been removed from UI
 }
 
 function setupButtons(_synth: SynthEngine) {
@@ -344,69 +488,7 @@ function setupButtons(_synth: SynthEngine) {
 }
 
 function setupKeyboard(synth: SynthEngine) {
-  const keyboard = document.getElementById("keyboard")!;
-
-  // Create piano keyboard
-  const octaves = 3;
-  const startOctave = 3;
-
-  for (let octave = startOctave; octave < startOctave + octaves; octave++) {
-    const octaveDiv = document.createElement("div");
-    octaveDiv.className = "octave";
-
-    // White keys
-    const whiteKeys = ["C", "D", "E", "F", "G", "A", "B"];
-    whiteKeys.forEach((note) => {
-      const key = document.createElement("div");
-      key.className = "key white-key";
-      key.dataset.note = `${note}${octave}`;
-      key.textContent = note;
-      octaveDiv.appendChild(key);
-    });
-
-    // Black keys
-    const blackKeys = ["C#", "D#", null, "F#", "G#", "A#", null];
-    blackKeys.forEach((note, index) => {
-      if (note) {
-        const key = document.createElement("div");
-        key.className = "key black-key";
-        key.dataset.note = `${note}${octave}`;
-        key.style.left = `${index * 14.28 + 10}%`; // Position between white keys
-        octaveDiv.appendChild(key);
-      }
-    });
-
-    keyboard.appendChild(octaveDiv);
-  }
-
-  // Add keyboard event listeners
-  const keys = keyboard.querySelectorAll(".key");
-  keys.forEach((key) => {
-    const element = key as HTMLElement;
-
-    element.addEventListener("mousedown", () => {
-      const note = element.dataset.note!;
-      console.log("Playing note:", note);
-      synth.noteOn(note);
-      element.classList.add("active");
-    });
-
-    element.addEventListener("mouseup", () => {
-      const note = element.dataset.note!;
-      console.log("Note off (mouseup):", note);
-      synth.noteOff(note);
-      element.classList.remove("active");
-    });
-
-    element.addEventListener("mouseleave", () => {
-      const note = element.dataset.note!;
-      console.log("Note off (mouseleave):", note);
-      synth.noteOff(note);
-      element.classList.remove("active");
-    });
-  });
-
-  // Computer keyboard mapping
+  // Computer keyboard mapping only - removed UI keyboard
   const keyMap: { [key: string]: string } = {
     a: "C3",
     w: "C#3",
@@ -432,9 +514,6 @@ function setupKeyboard(synth: SynthEngine) {
     if (note && !e.repeat) {
       console.log("Computer keyboard note on:", note);
       synth.noteOn(note);
-      // Highlight the corresponding visual key
-      const visualKey = document.querySelector(`[data-note="${note}"]`);
-      visualKey?.classList.add("active");
     }
   });
 
@@ -443,9 +522,6 @@ function setupKeyboard(synth: SynthEngine) {
     if (note) {
       console.log("Computer keyboard note off:", note);
       synth.noteOff(note);
-      // Remove highlight from the corresponding visual key
-      const visualKey = document.querySelector(`[data-note="${note}"]`);
-      visualKey?.classList.remove("active");
     }
   });
 }
@@ -666,6 +742,379 @@ function setupWaveformVisualization(synth: SynthEngine) {
   drawSpectrum();
 
   // Cleanup function
+  return () => {
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+    }
+  };
+}
+
+function setupLFOControls(synth: SynthEngine) {
+  // LFO Selection Buttons (1 & 2)
+  const lfoSelectButtons = document.querySelectorAll(".lfo-select-btn");
+  lfoSelectButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const element = button as HTMLElement;
+      const lfoNumber = parseInt(element.dataset.lfo || "1");
+
+      // Update button states
+      lfoSelectButtons.forEach((btn) => btn.classList.remove("active"));
+      element.classList.add("active");
+
+      // Switch current LFO and restore its state
+      currentLFO = lfoNumber;
+      restoreLFOState(currentLFO);
+
+      // Update main display
+      updateMainDisplay(
+        `LFO ${lfoNumber}`,
+        lfoStates[lfoNumber].active ? "ON" : "OFF"
+      );
+    });
+  });
+
+  // LFO Shape Button
+  const shapeButton = document.querySelector(".lfo-shape-btn");
+  if (shapeButton) {
+    shapeButton.addEventListener("click", () => {
+      // Cycle through shapes
+      const shapes = ["triangle", "sawtooth", "square", "random"];
+      const currentShapeIndex = shapes.indexOf(lfoStates[currentLFO].shape);
+      const nextShapeIndex = (currentShapeIndex + 1) % shapes.length;
+      const newShape = shapes[nextShapeIndex];
+
+      // Update state and UI
+      lfoStates[currentLFO].shape = newShape;
+      updateShapeLEDs(newShape);
+
+      // Update synth
+      synth.updateParameter(`lfo${currentLFO}`, "shape", newShape);
+      updateMainDisplay(`LFO ${currentLFO} SHAPE`, newShape.toUpperCase());
+    });
+  }
+
+  // LFO Shape LED Indicators (for visual feedback)
+  const shapeLEDs = document.querySelectorAll(".lfo-led-indicator");
+  shapeLEDs.forEach((led) => {
+    led.addEventListener("click", () => {
+      const element = led as HTMLElement;
+      const shape = element.dataset.shape;
+      if (shape) {
+        lfoStates[currentLFO].shape = shape;
+        updateShapeLEDs(shape);
+        synth.updateParameter(`lfo${currentLFO}`, "shape", shape);
+        updateMainDisplay(`LFO ${currentLFO} SHAPE`, shape.toUpperCase());
+      }
+    });
+  });
+
+  // LFO Sync Buttons
+  const syncButtons = document.querySelectorAll(".lfo-sync-btn");
+  syncButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const element = button as HTMLElement;
+      const syncType = element.dataset.sync;
+
+      if (element.classList.contains("active")) {
+        // Turn off sync
+        element.classList.remove("active");
+        lfoStates[currentLFO].sync = null;
+        synth.updateParameter(`lfo${currentLFO}`, "sync", 0);
+        updateMainDisplay(`LFO ${currentLFO} SYNC`, "OFF");
+      } else {
+        // Turn on sync, turn off other sync buttons
+        syncButtons.forEach((btn) => btn.classList.remove("active"));
+        element.classList.add("active");
+        lfoStates[currentLFO].sync = syncType || null;
+        synth.updateParameter(
+          `lfo${currentLFO}`,
+          "sync",
+          syncType === "clk" ? 1 : 2
+        );
+        updateMainDisplay(
+          `LFO ${currentLFO} SYNC`,
+          (syncType || "").toUpperCase()
+        );
+      }
+    });
+  });
+
+  // LFO Destination Button
+  const destButton = document.querySelector(".lfo-dest-btn");
+  if (destButton) {
+    destButton.addEventListener("click", () => {
+      // Cycle through destinations
+      currentDestIndex = (currentDestIndex + 1) % lfoDestinations.length;
+      const newDest = lfoDestinations[currentDestIndex];
+
+      lfoStates[currentLFO].destination = newDest;
+      updateDestinationDisplay(newDest);
+      updateMainDisplay(`LFO ${currentLFO} DEST`, newDest.toUpperCase());
+    });
+  }
+
+  // Update knob handling for LFO frequency and amount
+  const frequencyKnob = document.getElementById("lfo-frequency");
+  const amountKnob = document.getElementById("lfo-amount");
+
+  if (frequencyKnob) {
+    frequencyKnob.addEventListener("valueChanged", (e: any) => {
+      const value = e.detail.value;
+      lfoStates[currentLFO].frequency = value;
+      synth.updateParameter(`lfo${currentLFO}`, "frequency", value / 99);
+    });
+  }
+
+  if (amountKnob) {
+    amountKnob.addEventListener("valueChanged", (e: any) => {
+      const value = e.detail.value;
+      lfoStates[currentLFO].amount = value;
+      lfoStates[currentLFO].active = value > 0;
+      synth.updateParameter(`lfo${currentLFO}`, "amount", value / 99);
+    });
+  }
+
+  // Initialize with LFO 1 state
+  restoreLFOState(1);
+}
+
+function restoreLFOState(lfoNumber: number) {
+  const state = lfoStates[lfoNumber];
+
+  // Update shape LEDs
+  updateShapeLEDs(state.shape);
+
+  // Update sync buttons
+  const syncButtons = document.querySelectorAll(".lfo-sync-btn");
+  syncButtons.forEach((btn) => {
+    btn.classList.remove("active");
+    if (btn.getAttribute("data-sync") === state.sync) {
+      btn.classList.add("active");
+    }
+  });
+
+  // Update knob values
+  const frequencyKnob = document.getElementById("lfo-frequency") as HTMLElement;
+  const amountKnob = document.getElementById("lfo-amount") as HTMLElement;
+
+  if (frequencyKnob) {
+    frequencyKnob.dataset.value = state.frequency.toString();
+    updateKnobVisual(frequencyKnob, state.frequency, 0, 99);
+  }
+
+  if (amountKnob) {
+    amountKnob.dataset.value = state.amount.toString();
+    updateKnobVisual(amountKnob, state.amount, 0, 99);
+  }
+
+  // Update destination display
+  updateDestinationDisplay(state.destination);
+}
+
+function updateShapeLEDs(activeShape: string) {
+  const leds = document.querySelectorAll(".lfo-led-indicator");
+  leds.forEach((led) => {
+    const element = led as HTMLElement;
+    if (element.dataset.shape === activeShape) {
+      element.classList.add("active");
+    } else {
+      element.classList.remove("active");
+    }
+  });
+}
+
+function updateDestinationDisplay(destination: string) {
+  const destText = document.getElementById("lfo-dest-text");
+  if (destText) {
+    destText.textContent = destination.toUpperCase();
+  }
+}
+
+function updateMainDisplay(paramName: string, value: string) {
+  const paramNameElement = document.getElementById("param-name");
+  const paramValueElement = document.getElementById("param-value");
+
+  if (paramNameElement && paramValueElement) {
+    paramNameElement.textContent = paramName;
+    paramValueElement.textContent = value;
+  }
+}
+
+function setupVolumeMeter(synth: SynthEngine) {
+  let volumeBars: NodeListOf<Element>;
+  let statusLed: HTMLElement | null;
+  let volumeScreen: HTMLElement | null;
+  let animationId: number | null = null;
+  let analyzer: any = null;
+  let peakLevel = 0;
+  let peakHoldTime = 0;
+  let smoothedVolume = 0;
+  let smoothedDbValue = -Infinity;
+
+  // Get volume meter elements
+  volumeBars = document.querySelectorAll(".volume-bar");
+  statusLed = document.getElementById("audio-status-led");
+  volumeScreen = document.getElementById("volume-screen");
+
+  console.log("Volume meter setup:", {
+    volumeBars: volumeBars.length,
+    statusLed: !!statusLed,
+    volumeScreen: !!volumeScreen,
+  });
+
+  if (!volumeBars.length) {
+    console.warn("No volume bars found");
+    return;
+  }
+
+  // Add digital readout to volume screen
+  if (volumeScreen) {
+    const digitalReadout = document.createElement("div");
+    digitalReadout.className = "volume-digital-readout";
+    digitalReadout.style.cssText = `
+      font-size: 11px;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+      opacity: 0.9;
+    `;
+    digitalReadout.textContent = "-∞ dB";
+    volumeScreen.insertBefore(digitalReadout, volumeScreen.firstChild);
+  }
+
+  // Get analyzer from synth engine
+  try {
+    analyzer = synth.getVolumeAnalyzer(); // Use volume analyzer instead
+    console.log("Volume analyzer obtained:", !!analyzer);
+  } catch (error) {
+    console.warn("Could not get volume analyzer for volume meter:", error);
+    return;
+  }
+
+  function updateVolumeMeter() {
+    try {
+      if (!analyzer) return;
+
+      // Get waveform data from Tone.js analyzer
+      const waveform = analyzer.getValue();
+
+      // Calculate RMS (Root Mean Square) for volume level from waveform data
+      let sum = 0;
+      const length = waveform.length;
+
+      for (let i = 0; i < length; i++) {
+        // For waveform data, values are already in linear scale (-1 to 1)
+        if (typeof waveform[i] === "number") {
+          const sample = waveform[i];
+          sum += sample * sample;
+        }
+      }
+
+      const rms = Math.sqrt(sum / length);
+      const volume = Math.min(Math.max(rms * 3, 0), 1); // Scale for waveform data
+
+      // Debug logging (remove after testing)
+      if (Math.random() < 0.01) {
+        // Log occasionally
+        console.log("Volume meter data:", { rms, volume, length });
+      }
+
+      // Smooth the volume and dB values to reduce jitter
+      const volumeSmoothing = 0.8;
+      const dbSmoothing = 0.9;
+      smoothedVolume =
+        smoothedVolume * volumeSmoothing + volume * (1 - volumeSmoothing);
+
+      // Peak detection with hold
+      if (volume > peakLevel) {
+        peakLevel = volume;
+        peakHoldTime = 30; // Hold peak for 30 frames (~500ms at 60fps)
+      } else if (peakHoldTime > 0) {
+        peakHoldTime--;
+      } else {
+        peakLevel *= 0.95; // Gradual peak decay
+      }
+
+      // Update digital readout with smoothing
+      const digitalReadout = volumeScreen?.querySelector(
+        ".volume-digital-readout"
+      );
+      if (digitalReadout) {
+        if (smoothedVolume > 0.001) {
+          const currentDbValue = Math.max(-40, 20 * Math.log10(smoothedVolume));
+          // Smooth the dB display to reduce jitter
+          if (smoothedDbValue === -Infinity) {
+            smoothedDbValue = currentDbValue;
+          } else {
+            smoothedDbValue =
+              smoothedDbValue * dbSmoothing +
+              currentDbValue * (1 - dbSmoothing);
+          }
+          digitalReadout.textContent = `${smoothedDbValue.toFixed(1)} dB`;
+        } else {
+          smoothedDbValue = -Infinity;
+          digitalReadout.textContent = "-∞ dB";
+        }
+      }
+
+      // Update status LED with activity detection
+      if (statusLed) {
+        if (smoothedVolume > 0.01) {
+          statusLed.classList.add("active");
+        } else {
+          statusLed.classList.remove("active");
+        }
+      }
+
+      // Update discrete volume bars
+      volumeBars.forEach((bar) => {
+        const element = bar as HTMLElement;
+        const level = parseInt(element.getAttribute("data-level") || "0");
+
+        // Convert volume level to bar count (0-20 bars)
+        const dbValue =
+          smoothedVolume > 0.001 ? 20 * Math.log10(smoothedVolume) : -40;
+        const normalizedDb = Math.max(0, Math.min(1, (dbValue + 40) / 40)); // -40dB to 0dB range
+        const activeBars = Math.floor(normalizedDb * 20); // 0 to 20 bars
+
+        // Remove active class
+        element.classList.remove("active");
+
+        // Add active class if this bar should be lit (fill from bottom up)
+        // Level 1 is at bottom, level 20 is at top
+        if (21 - level <= activeBars) {
+          element.classList.add("active");
+        }
+
+        // Peak indicator - brighten bars at peak level
+        if (peakLevel > 0.001) {
+          const peakDbValue = 20 * Math.log10(peakLevel);
+          const peakNormalizedDb = Math.max(
+            0,
+            Math.min(1, (peakDbValue + 40) / 40)
+          );
+          const peakBars = Math.floor(peakNormalizedDb * 20);
+
+          if (21 - level === peakBars && peakHoldTime > 15) {
+            element.style.filter = "brightness(1.5)";
+            element.style.transform = "scaleY(1.2)";
+          } else {
+            element.style.filter = "";
+            element.style.transform = "";
+          }
+        }
+      });
+    } catch (error) {
+      console.warn("Volume meter update failed:", error);
+    }
+
+    // Continue animation
+    animationId = requestAnimationFrame(updateVolumeMeter);
+  }
+
+  // Start volume meter animation
+  updateVolumeMeter();
+
+  // Return cleanup function
   return () => {
     if (animationId) {
       cancelAnimationFrame(animationId);

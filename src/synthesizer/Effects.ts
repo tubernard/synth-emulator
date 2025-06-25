@@ -9,7 +9,8 @@ export class Effects {
   private reverbSend: Tone.Gain;
   private delaySend: Tone.Gain;
   private chorusSend: Tone.Gain;
-  public analyzer: Tone.Analyser; // Add analyzer node
+  public analyzer: Tone.Analyser; // Spectrum analyzer for visualization
+  public volumeAnalyzer: Tone.Analyser; // Waveform analyzer for volume metering
 
   constructor() {
     // Create input/output
@@ -47,6 +48,13 @@ export class Effects {
       smoothing: 0.8,
     });
 
+    // Create analyzer for volume metering (waveform)
+    this.volumeAnalyzer = new Tone.Analyser({
+      type: "waveform",
+      size: 128,
+      smoothing: 0.9,
+    });
+
     // Setup signal routing
     this.setupRouting();
   }
@@ -70,8 +78,9 @@ export class Effects {
     this.chorusSend.connect(this.chorus);
     this.chorus.connect(this.output);
 
-    // Connect analyzer to output
+    // Connect analyzers to output
     this.output.connect(this.analyzer);
+    this.output.connect(this.volumeAnalyzer);
 
     // Start chorus
     this.chorus.start();
@@ -105,5 +114,6 @@ export class Effects {
     this.delaySend.dispose();
     this.chorusSend.dispose();
     this.analyzer.dispose();
+    this.volumeAnalyzer.dispose();
   }
 }

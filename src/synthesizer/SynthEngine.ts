@@ -2,19 +2,29 @@ import * as Tone from "tone";
 import { Voice } from "./Voice.ts";
 import { Effects } from "./Effects.ts";
 
+// Custom waveform type that includes Prophet Rev2 waveforms
+export type ProphetWaveform = OscillatorType | "pulse";
+
 export interface SynthParams {
   // Oscillator parameters
   osc1: {
-    frequency: number;
-    waveform: OscillatorType;
-    shape: number;
-    sub: number;
+    frequency: number; // Semitones -24 to +24
+    fine: number; // Fine tuning -50 to +50 cents
+    waveform: ProphetWaveform;
+    shape: number; // Shape amount 0-99
+    shapeMod: number; // Shape modulation amount 0-99
+    subOctave: number; // Sub oscillator level 0-99 (one octave down)
+    noise: number; // Noise level 0-99
   };
   osc2: {
-    frequency: number;
-    waveform: OscillatorType;
-    shape: number;
-    sync: number;
+    frequency: number; // Semitones -24 to +24
+    fine: number; // Fine tuning -50 to +50 cents
+    waveform: ProphetWaveform;
+    shape: number; // Shape amount 0-99
+    shapeMod: number; // Shape modulation amount 0-99
+    slop: number; // Oscillator slop 0-99
+    sync: number; // Oscillator sync 0 or 1
+    mix: number; // Mix between OSC1 and OSC2 0-1
   };
   // Filter parameters
   filter: {
@@ -49,20 +59,28 @@ export class SynthEngine {
   private maxVoices = 8;
   private currentVoice = 0;
   private masterVolume: Tone.Volume;
+  private volumeAnalyzer: Tone.Analyser; // Volume analyzer for final output metering
   private effects: Effects;
 
   public params: SynthParams = {
     osc1: {
       frequency: 0,
+      fine: 0,
       waveform: "sawtooth",
       shape: 0,
-      sub: 0,
+      shapeMod: 0,
+      subOctave: 0,
+      noise: 0,
     },
     osc2: {
       frequency: 0,
+      fine: 0,
       waveform: "sawtooth",
       shape: 0,
+      shapeMod: 0,
+      slop: 0,
       sync: 0,
+      mix: 0.5,
     },
     filter: {
       cutoff: 632, // ~0.5 position on logarithmic scale (20Hz to 20kHz)
@@ -89,9 +107,18 @@ export class SynthEngine {
   };
 
   constructor() {
-    this.masterVolume = new Tone.Volume(-6).toDestination();
+    this.masterVolume = new Tone.Volume(-6);
+    this.volumeAnalyzer = new Tone.Analyser({
+      type: "waveform",
+      size: 512,
+      smoothing: 0.8,
+    });
     this.effects = new Effects();
+
+    // Setup signal chain: effects -> masterVolume -> volumeAnalyzer -> destination
     this.effects.connect(this.masterVolume);
+    this.masterVolume.connect(this.volumeAnalyzer);
+    this.volumeAnalyzer.toDestination();
 
     // Initialize voices
     this.initializeVoices();
@@ -212,6 +239,28 @@ export class SynthEngine {
             this.effects.updateParameter(param, value as number);
           }
           break;
+        case "master":
+          console.log(
+            "Master parameter update:",
+            param,
+            value,
+            "type:",
+            typeof value
+          );
+          if (param === "volume") {
+            // Convert percentage (0-99) to gain (0-1)
+            const gain = (value as number) / 99;
+            console.log(
+              "Converting volume percentage",
+              value,
+              "to gain",
+              gain,
+              "will map to dB:",
+              -40 + gain * 46
+            );
+            this.setMasterVolume(gain);
+          }
+          break;
       }
 
       // Update all voices with new parameters
@@ -231,6 +280,11 @@ export class SynthEngine {
     return this.effects.analyzer;
   }
 
+  // Get the volume analyzer node for volume metering
+  getVolumeAnalyzer(): Tone.Analyser {
+    return this.volumeAnalyzer;
+  }
+
   // Get parameter value - used for waveform visualization
   getParameter(section: string, param: string): number | string {
     try {
@@ -238,12 +292,14 @@ export class SynthEngine {
         case "oscillator1":
           if (param === "waveform") return this.params.osc1.waveform;
           if (param === "shape") return this.params.osc1.shape;
-          if (param === "sub") return this.params.osc1.sub;
+          if (param === "subOctave") return this.params.osc1.subOctave;
+          if (param === "noise") return this.params.osc1.noise;
           break;
         case "oscillator2":
           if (param === "waveform") return this.params.osc2.waveform;
           if (param === "shape") return this.params.osc2.shape;
           if (param === "sync") return this.params.osc2.sync;
+          if (param === "mix") return this.params.osc2.mix;
           break;
         case "filter":
           if (param === "cutoff") {
@@ -271,12 +327,18 @@ export class SynthEngine {
   }
 
   setMasterVolume(volume: number) {
-    this.masterVolume.volume.value = Tone.gainToDb(volume);
+    // volume should be 0-1 range
+    // Instead of using gainToDb which can create very negative values for low volumes,
+    // let's use a more practical dB range
+    const dbValue = -40 + volume * 46; // Maps 0-1 to -40dB to +6dB
+    console.log("Setting master volume:", volume, "-> dB:", dbValue);
+    this.masterVolume.volume.value = dbValue;
   }
 
   dispose() {
     this.voices.forEach((voice) => voice.dispose());
     this.effects.dispose();
     this.masterVolume.dispose();
+    this.volumeAnalyzer.dispose();
   }
 }
