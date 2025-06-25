@@ -1,12 +1,10 @@
 import type { SynthEngine } from "../synthesizer/SynthEngine";
 
-// Display parameter mappings for synthesizer scale values
 const DISPLAY_SCALES = {
   "filter-cutoff": {
     min: 0,
     max: 164,
     convert: (displayValue: number) => {
-      // Convert display value (0-164) to frequency (20Hz-20kHz) logarithmically
       const normalizedValue = displayValue / 164;
       const minFreq = 20;
       const maxFreq = 20000;
@@ -40,7 +38,6 @@ const DISPLAY_SCALES = {
   },
 };
 
-// LFO State Management
 interface LFOState {
   shape: string;
   frequency: number;
@@ -69,7 +66,7 @@ const lfoStates: { [key: number]: LFOState } = {
   },
 };
 
-let currentLFO = 1; // Currently selected LFO
+let currentLFO = 1;
 const lfoDestinations = [
   "cutoff",
   "resonance",
@@ -80,28 +77,13 @@ const lfoDestinations = [
 let currentDestIndex = 0;
 
 export function setupUI(synth: SynthEngine) {
-  // Setup knob controls
   setupKnobs(synth);
-
-  // Setup keyboard
   setupKeyboard(synth);
-
-  // Setup button controls
   setupButtons(synth);
-
-  // Setup waveform buttons
   setupWaveformButtons(synth);
-
-  // Setup filter type buttons
   setupFilterButtons(synth);
-
-  // Setup LFO controls
   setupLFOControls(synth);
-
-  // Setup volume meter
   setupVolumeMeter(synth);
-
-  // Setup waveform visualization
   setupWaveformVisualization(synth);
 }
 
@@ -154,15 +136,6 @@ function setupKnobs(synth: SynthEngine) {
         updateKnobVisual(element, newValue, min, max);
         updateDisplay(element.id, newValue, displayScale);
 
-        // Update synthesizer parameter
-        console.log(
-          "Knob drag - ID:",
-          element.id,
-          "Value:",
-          newValue,
-          "DisplayScale:",
-          displayScale
-        );
         updateSynthParameter(synth, element.id, newValue, displayScale);
 
         animationFrameId = null;
@@ -284,7 +257,6 @@ function updateSynthParameter(
   displayScale: string
 ) {
   const [section, param] = knobId.split("-");
-  console.log("UI updateSynthParameter:", knobId, "->", section, param, value);
 
   // Convert display value to synth parameter value
   let processedValue = value;
@@ -346,12 +318,6 @@ function updateSynthParameter(
       }
       break;
     case "filter":
-      console.log(
-        "Calling synth.updateParameter for filter:",
-        section,
-        param,
-        processedValue
-      );
       if (
         param.startsWith("env") ||
         ["attack", "decay", "sustain", "release"].includes(param)
@@ -512,7 +478,6 @@ function setupKeyboard(synth: SynthEngine) {
   document.addEventListener("keydown", (e) => {
     const note = keyMap[e.key.toLowerCase()];
     if (note && !e.repeat) {
-      console.log("Computer keyboard note on:", note);
       synth.noteOn(note);
     }
   });
@@ -520,7 +485,6 @@ function setupKeyboard(synth: SynthEngine) {
   document.addEventListener("keyup", (e) => {
     const note = keyMap[e.key.toLowerCase()];
     if (note) {
-      console.log("Computer keyboard note off:", note);
       synth.noteOff(note);
     }
   });
@@ -956,14 +920,7 @@ function setupVolumeMeter(synth: SynthEngine) {
   statusLed = document.getElementById("audio-status-led");
   volumeScreen = document.getElementById("volume-screen");
 
-  console.log("Volume meter setup:", {
-    volumeBars: volumeBars.length,
-    statusLed: !!statusLed,
-    volumeScreen: !!volumeScreen,
-  });
-
   if (!volumeBars.length) {
-    console.warn("No volume bars found");
     return;
   }
 
@@ -983,8 +940,7 @@ function setupVolumeMeter(synth: SynthEngine) {
 
   // Get analyzer from synth engine
   try {
-    analyzer = synth.getVolumeAnalyzer(); // Use volume analyzer instead
-    console.log("Volume analyzer obtained:", !!analyzer);
+    analyzer = synth.getVolumeAnalyzer();
   } catch (error) {
     console.warn("Could not get volume analyzer for volume meter:", error);
     return;
@@ -1011,12 +967,6 @@ function setupVolumeMeter(synth: SynthEngine) {
 
       const rms = Math.sqrt(sum / length);
       const volume = Math.min(Math.max(rms * 3, 0), 1); // Scale for waveform data
-
-      // Debug logging (remove after testing)
-      if (Math.random() < 0.01) {
-        // Log occasionally
-        console.log("Volume meter data:", { rms, volume, length });
-      }
 
       // Smooth the volume and dB values to reduce jitter
       const volumeSmoothing = 0.8;

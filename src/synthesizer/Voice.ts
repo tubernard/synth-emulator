@@ -31,11 +31,6 @@ export class Voice {
       Q: params.filter.resonance,
     });
 
-    console.log(
-      "Voice constructor: Initial filter cutoff:",
-      params.filter.cutoff
-    );
-
     // Create envelopes
     this.ampEnv = new Tone.AmplitudeEnvelope({
       attack: params.ampEnv.attack,
@@ -51,30 +46,17 @@ export class Voice {
     });
 
     // Create gain stages
-    this.osc1Gain = new Tone.Gain(0.5); // OSC1 level
-    this.osc2Gain = new Tone.Gain(params.osc2.mix * 0.5); // OSC2 mix level
-    this.subGain = new Tone.Gain(0); // Sub oscillator starts at 0
-    this.noiseGain = new Tone.Gain(0); // Noise starts at 0
-    this.mixerGain = new Tone.Gain(0.7); // Overall level (reduce to compensate for multiple sources)
+    this.osc1Gain = new Tone.Gain(0.5);
+    this.osc2Gain = new Tone.Gain(params.osc2.mix * 0.5);
+    this.subGain = new Tone.Gain(0);
+    this.noiseGain = new Tone.Gain(0);
+    this.mixerGain = new Tone.Gain(0.7);
     this.output = new Tone.Gain(1);
 
-    console.log("Voice constructor - initial gain values:", {
-      osc1: this.osc1Gain.gain.value,
-      osc2: this.osc2Gain.gain.value,
-      sub: this.subGain.gain.value,
-      noise: this.noiseGain.gain.value,
-    });
-
-    // Connect the signal chain
     this.setupConnections();
   }
 
   private setupConnections() {
-    // Signal chain: All sources -> MixerGain -> Filter -> Amp Envelope -> Output
-    // Osc1 -> Osc1Gain -> MixerGain
-    // Osc2 -> Osc2Gain -> MixerGain
-    // SubOsc -> SubGain -> MixerGain
-    // Noise -> NoiseGain -> MixerGain
     this.osc1Gain.connect(this.mixerGain);
     this.osc2Gain.connect(this.mixerGain);
     this.subGain.connect(this.mixerGain);
@@ -89,24 +71,14 @@ export class Voice {
 
   noteOn(note: string | number, velocity: number = 0.8) {
     try {
-      console.log(
-        "Voice.noteOn called with:",
-        note,
-        "current active:",
-        this.active,
-        "currentNote:",
-        this.currentNote
-      );
-
       // Cancel any pending stop timeout
       if (this.stopTimeout) {
         clearTimeout(this.stopTimeout);
         this.stopTimeout = null;
       }
 
-      // ALWAYS stop existing oscillators first to prevent layering
+      // Stop existing oscillators to prevent layering
       if (this.osc1 || this.osc2) {
-        console.log("Stopping existing oscillators before creating new ones");
         this.stopOscillators();
       }
 
@@ -117,7 +89,7 @@ export class Voice {
       const frequency =
         typeof note === "string" ? Tone.Frequency(note).toFrequency() : note;
 
-      // Set oscillator frequencies with detuning and fine tune adjustments
+      // Calculate oscillator frequencies with detuning
       const osc1Freq =
         frequency *
         Math.pow(2, this.params.osc1.frequency / 12) *
@@ -128,20 +100,17 @@ export class Voice {
         Math.pow(2, this.params.osc2.frequency / 12) *
         Math.pow(2, this.params.osc2.fine / 1200);
 
-      // Apply slop (slight random detuning) to osc2 if enabled
+      // Apply oscillator slop (random detuning) to osc2
       let slopDetune = 0;
       if (this.params.osc2.slop > 0) {
-        // Maximum 50 cents of random detune based on slop amount
         const maxDetuneCents = 50;
         slopDetune =
           (Math.random() * 2 - 1) *
           maxDetuneCents *
           (this.params.osc2.slop / 100);
-        console.log("Applied OSC2 slop:", slopDetune, "cents");
       }
 
-      // Create oscillators for this note
-      // Handle 'pulse' waveform by using 'square' with PWM
+      // Handle pulse waveform by using square wave
       const osc1Waveform =
         this.params.osc1.waveform === "pulse"
           ? "square"
@@ -151,38 +120,29 @@ export class Voice {
           ? "square"
           : this.params.osc2.waveform;
 
-      // Create OSC1
+      // Create oscillators
       this.osc1 = new Tone.Oscillator({
         type: osc1Waveform as OscillatorType,
         frequency: osc1Freq,
       });
 
-      // Create OSC2
       this.osc2 = new Tone.Oscillator({
         type: osc2Waveform as OscillatorType,
-        frequency: osc2Freq * Math.pow(2, slopDetune / 1200), // Apply slop detune
+        frequency: osc2Freq * Math.pow(2, slopDetune / 1200),
       });
 
-      // Create sub oscillator (one octave below OSC1) if level > 0
+      // Create sub oscillator if enabled
       if (this.params.osc1.subOctave > 0) {
-        console.log(
-          "Creating sub oscillator at level:",
-          this.params.osc1.subOctave
-        );
         this.subOsc = new Tone.Oscillator({
-          type: "square", // Sub is typically a square wave
-          frequency: osc1Freq / 2, // One octave down
+          type: "square",
+          frequency: osc1Freq / 2,
         });
         this.subOsc.connect(this.subGain);
         this.subOsc.start();
       }
 
-      // Create noise generator if noise level > 0
+      // Create noise generator if enabled
       if (this.params.osc1.noise > 0) {
-        console.log(
-          "Creating noise generator at level:",
-          this.params.osc1.noise
-        );
         this.noise = new Tone.Noise({
           type: "white",
         });
@@ -190,27 +150,16 @@ export class Voice {
         this.noise.start();
       }
 
-      // Connect oscillators to gain stages
+      // Connect oscillators
       this.osc1.connect(this.osc1Gain);
       this.osc2.connect(this.osc2Gain);
 
       // Set up OSC2 sync if enabled
       if (this.params.osc2.sync > 0.5) {
-        console.log("OSC2 sync enabled");
-
-        // In Web Audio API, we can't directly perform oscillator hard sync like analog synths
-        // We can implement a more accurate simulation by creating a sync effect:
-        // 1. When sync is enabled, OSC1 controls the fundamental pitch
-        // 2. OSC2 runs at a higher frequency but has its phase reset by OSC1
-
+        // Implement oscillator sync simulation
         if (this.osc1 && this.osc2) {
-          // Adjust OSC2 to a higher frequency for more dramatic sync effect
-          const syncRatio = 2 + this.params.osc2.frequency / 6; // Create more harmonics
+          const syncRatio = 2 + this.params.osc2.frequency / 6;
           this.osc2.frequency.value = osc1Freq * syncRatio;
-
-          // This would ideally connect to the sync input, but Web Audio doesn't directly support this
-          // Instead we're doing a frequency relationship that mimics some sync characteristics
-          console.log("Set up sync relationship between OSC1 and OSC2");
         }
       }
 
@@ -218,10 +167,10 @@ export class Voice {
       this.osc1.start();
       this.osc2.start();
 
-      // Trigger envelopes (fresh attack)
+      // Trigger envelopes
       this.ampEnv.triggerAttack(Tone.now(), velocity);
 
-      // Apply LFO modulation based on destination
+      // Apply LFO modulation
       this.applyLFOModulation();
     } catch (error) {
       console.error("Error in noteOn:", error);
@@ -230,24 +179,14 @@ export class Voice {
 
   noteOff() {
     try {
-      console.log(
-        "Voice.noteOff called, active:",
-        this.active,
-        "note:",
-        this.currentNote
-      );
       if (!this.active) return;
 
       this.active = false;
-
-      // Trigger envelope releases
       this.ampEnv.triggerRelease(Tone.now());
 
-      // Stop and dispose oscillators after release time
+      // Stop oscillators after release time
       const releaseTime = this.params.ampEnv.release;
-      console.log("Scheduling oscillator stop in", releaseTime, "seconds");
       this.stopTimeout = window.setTimeout(() => {
-        console.log("Stopping oscillators for note:", this.currentNote);
         this.stopOscillators();
         this.currentNote = null;
         this.stopTimeout = null;
@@ -267,6 +206,7 @@ export class Voice {
       }
       this.osc1 = null;
     }
+
     if (this.osc2) {
       try {
         this.osc2.stop();
@@ -276,7 +216,7 @@ export class Voice {
       }
       this.osc2 = null;
     }
-    // Stop sub oscillator if present
+
     if (this.subOsc) {
       try {
         this.subOsc.stop();
@@ -286,17 +226,7 @@ export class Voice {
       }
       this.subOsc = null;
     }
-    // Stop noise generator if present
-    if (this.noise) {
-      try {
-        this.noise.stop();
-        this.noise.dispose();
-      } catch (e) {
-        console.warn("Error stopping noise generator:", e);
-      }
-      this.noise = null;
-    }
-    // Stop noise generator if present
+
     if (this.noise) {
       try {
         this.noise.stop();
@@ -435,10 +365,6 @@ export class Voice {
     }
 
     // Update filter
-    console.log(
-      "updateParams: Setting filter cutoff to",
-      newParams.filter.cutoff
-    );
     this.filter.type = newParams.filter.type;
     this.filter.frequency.value = newParams.filter.cutoff;
     this.filter.Q.value = newParams.filter.resonance;

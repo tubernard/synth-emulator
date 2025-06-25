@@ -134,11 +134,7 @@ export class SynthEngine {
 
   async start() {
     try {
-      console.log("Starting Tone.js context...");
-      console.log("Context state before start:", Tone.getContext().state);
       await Tone.start();
-      console.log("Context state after start:", Tone.getContext().state);
-      console.log("Audio context started successfully");
     } catch (error) {
       console.error("Failed to start audio context:", error);
     }
@@ -146,14 +142,11 @@ export class SynthEngine {
 
   noteOn(note: string | number, velocity: number = 0.8) {
     try {
-      console.log("SynthEngine.noteOn called with:", note, velocity);
-
-      // First check if this note is already playing and stop it
+      // Stop any existing voice playing this note
       const existingVoice = this.voices.find(
         (v) => v.currentNote === note && v.isActive()
       );
       if (existingVoice) {
-        console.log("Stopping existing voice for same note");
         existingVoice.noteOff();
       }
 
@@ -163,10 +156,8 @@ export class SynthEngine {
       if (!voice) {
         voice = this.voices[this.currentVoice];
         this.currentVoice = (this.currentVoice + 1) % this.maxVoices;
-        console.log("Stealing voice:", this.currentVoice - 1);
       }
 
-      console.log("Using voice:", voice);
       voice.noteOn(note, velocity);
     } catch (error) {
       console.error("Error playing note:", error);
@@ -175,16 +166,11 @@ export class SynthEngine {
 
   noteOff(note: string | number) {
     try {
-      console.log("SynthEngine.noteOff called with:", note);
-      // Find the voice playing this note
       const voice = this.voices.find(
         (v) => v.currentNote === note && v.isActive()
       );
       if (voice) {
-        console.log("Found voice to stop:", voice);
         voice.noteOff();
-      } else {
-        console.log("No active voice found for note:", note);
       }
     } catch (error) {
       console.error("Error stopping note:", error);
@@ -197,8 +183,6 @@ export class SynthEngine {
 
   updateParameter(section: string, param: string, value: number | string) {
     try {
-      console.log("SynthEngine.updateParameter:", section, param, value);
-
       switch (section) {
         case "osc1":
           if (param in this.params.osc1) {
@@ -212,14 +196,6 @@ export class SynthEngine {
           break;
         case "filter":
           if (param in this.params.filter) {
-            console.log(
-              "Updating filter parameter:",
-              param,
-              "from",
-              (this.params.filter as any)[param],
-              "to",
-              value
-            );
             (this.params.filter as any)[param] = value;
           }
           break;
@@ -240,24 +216,8 @@ export class SynthEngine {
           }
           break;
         case "master":
-          console.log(
-            "Master parameter update:",
-            param,
-            value,
-            "type:",
-            typeof value
-          );
           if (param === "volume") {
-            // Convert percentage (0-99) to gain (0-1)
             const gain = (value as number) / 99;
-            console.log(
-              "Converting volume percentage",
-              value,
-              "to gain",
-              gain,
-              "will map to dB:",
-              -40 + gain * 46
-            );
             this.setMasterVolume(gain);
           }
           break;
@@ -327,11 +287,8 @@ export class SynthEngine {
   }
 
   setMasterVolume(volume: number) {
-    // volume should be 0-1 range
-    // Instead of using gainToDb which can create very negative values for low volumes,
-    // let's use a more practical dB range
-    const dbValue = -40 + volume * 46; // Maps 0-1 to -40dB to +6dB
-    console.log("Setting master volume:", volume, "-> dB:", dbValue);
+    // Map 0-1 range to practical dB range (-40dB to +6dB)
+    const dbValue = -40 + volume * 46;
     this.masterVolume.volume.value = dbValue;
   }
 

@@ -3,21 +3,17 @@ import { SynthEngine } from "./synthesizer/SynthEngine";
 import { setupUI } from "./ui/interface";
 import * as Tone from "tone";
 
-// Initialize the synthesizer and start it automatically
 const synth = new SynthEngine();
 
-// Auto-start the synthesizer when page loads
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     await Tone.start();
     await synth.start();
-    console.log("Audio context started automatically");
   } catch (error) {
     console.error("Failed to start audio:", error);
   }
 });
 
-// Setup the Synthesizer Sim hardware interface matching the PNG exactly
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div class="synth-hardware">
     
@@ -469,5 +465,4 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   </div>
 `;
 
-// Initialize the interface
 setupUI(synth);
