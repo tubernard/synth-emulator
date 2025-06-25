@@ -24,7 +24,7 @@ const DISPLAY_SCALES = {
   cents: {
     min: -50,
     max: 50,
-    convert: (displayValue: number) => displayValue / 100,
+    convert: (displayValue: number) => displayValue, // Keep cents as-is
   },
   bipolar: {
     min: -99,
@@ -105,6 +105,9 @@ function setupKnobs(synth: SynthEngine) {
     // Set initial rotation and display
     updateKnobVisual(element, initialValue, min, max);
     updateDisplay(element.id, initialValue, displayScale);
+
+    // Initialize synth parameter to match UI value
+    updateSynthParameter(synth, element.id, initialValue, displayScale);
 
     element.addEventListener("mousedown", (e) => {
       isDragging = true;

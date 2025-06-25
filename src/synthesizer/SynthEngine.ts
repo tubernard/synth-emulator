@@ -80,7 +80,7 @@ export class SynthEngine {
       shapeMod: 0,
       slop: 0,
       sync: 0,
-      mix: 0.5,
+      mix: 0.5, // 50% mix by default
     },
     filter: {
       cutoff: 632, // ~0.5 position on logarithmic scale (20Hz to 20kHz)

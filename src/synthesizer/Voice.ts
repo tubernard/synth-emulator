@@ -47,7 +47,7 @@ export class Voice {
 
     // Create gain stages
     this.osc1Gain = new Tone.Gain(0.5);
-    this.osc2Gain = new Tone.Gain(params.osc2.mix * 0.5);
+    this.osc2Gain = new Tone.Gain(params.osc2.mix); // Use direct mix value (0-1)
     this.subGain = new Tone.Gain(0);
     this.noiseGain = new Tone.Gain(0);
     this.mixerGain = new Tone.Gain(0.7);
@@ -329,7 +329,7 @@ export class Voice {
 
     // Update oscillator mix
     this.osc1Gain.gain.rampTo(0.5, 0.01); // OSC1 is always at full level
-    this.osc2Gain.gain.rampTo((newParams.osc2.mix / 99) * 0.5, 0.01); // OSC2 level controlled by mix
+    this.osc2Gain.gain.rampTo(newParams.osc2.mix, 0.01); // OSC2 level controlled by mix (0-1)
 
     if (this.osc2 && this.currentNote) {
       // Update waveform (map pulse to square for Tone.js compatibility)
