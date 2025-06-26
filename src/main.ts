@@ -257,17 +257,27 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
         <h3>LOW FREQUENCY OSCILLATORS</h3>
         <div class="lfo-hardware-layout">
           
-          <!-- LFO Selection Buttons (1 & 2) -->
+          <!-- LFO Selection Buttons (1 & 2) with LED indicators -->
           <div class="lfo-selection-column">
-            <button class="lfo-select-btn active" data-lfo="1">
-              <div class="sync-btn-inner"></div>
-            </button>
-            <label class="lfo-select-label">1</label>
+            <div class="lfo-button-with-led">
+              <label class="lfo-select-label">1</label>
+              <button class="lfo-select-btn" data-lfo="1">
+                <div class="sync-btn-inner"></div>
+              </button>
+              <div class="lfo-led-indicator" data-lfo="1">
+                <div class="led-square"></div>
+              </div>
+            </div>
             
-            <button class="lfo-select-btn" data-lfo="2">
-              <div class="sync-btn-inner"></div>
-            </button>
-            <label class="lfo-select-label">2</label>
+            <div class="lfo-button-with-led">
+              <label class="lfo-select-label">2</label>
+              <button class="lfo-select-btn" data-lfo="2">
+                <div class="sync-btn-inner"></div>
+              </button>
+              <div class="lfo-led-indicator" data-lfo="2">
+                <div class="led-square"></div>
+              </div>
+            </div>
           </div>
 
           <!-- Shape Selection with LEDs -->
@@ -279,21 +289,21 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
             <label class="lfo-shape-label">SHAPE</label>
           </div>
             <div class="lfo-waveform-leds">
-              <div class="lfo-led-indicator triangle active" data-shape="triangle">
+              <div class="led-indicator triangle active" data-shape="triangle">
                   <div class="led-square"></div>
-                  <label>Triangle</label>
+                  <label>TRIANGLE</label>
                 </div>
-                <div class="lfo-led-indicator sawtooth" data-shape="sawtooth">
+                <div class="led-indicator sawtooth" data-shape="sawtooth">
                   <div class="led-square"></div>
-                  <label>Saw Tooth</label>
+                  <label>SAWTOOTH</label>
               </div> 
-                <div class="lfo-led-indicator square" data-shape="square">
+                <div class="led-indicator square" data-shape="square">
                   <div class="led-square"></div>
-                  <label>Square</label>
+                  <label>SQUARE</label>
                 </div>
-                <div class="lfo-led-indicator random" data-shape="random">
+                <div class="led-indicator sine" data-shape="sine">
                   <div class="led-square"></div>
-                  <label>Random</label>
+                  <label>SINE</label>
                 </div>
              </div>
              </div>
@@ -302,7 +312,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
           <!-- Frequency and Sync Controls -->
           <div class="lfo-frequency-column">
             <div class="knob-container">
-              <div class="knob" id="lfo-frequency" data-min="0" data-max="99" data-value="50" data-display-scale="percent"></div>
+              <div class="knob" id="lfo-frequency" data-min="0" data-max="99" data-value="50" data-display-scale="lfoFreq"></div>
               <label>FREQUENCY</label>
             </div>
             

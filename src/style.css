@@ -700,6 +700,38 @@ body {
   text-align: center;
 }
 
+/* LFO Button with LED layout */
+.lfo-button-with-led {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.lfo-button-with-led .lfo-led-indicator {
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(145deg, #1a1a1a, #000000);
+  border: 1px solid #333333;
+  border-radius: 2px;
+  position: relative;
+  transition: all 0.2s ease;
+  pointer-events: none; /* Make LED non-clickable */
+  cursor: default; /* Remove pointer cursor */
+}
+
+.lfo-button-with-led .lfo-led-indicator.active {
+  background: linear-gradient(145deg, #ff4444, #cc2222);
+  border-color: #ff6666;
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.8);
+}
+
+.lfo-button-with-led .lfo-led-indicator .led-square {
+  width: 100%;
+  height: 100%;
+  border-radius: 1px;
+}
+
 /* LFO Shape Controls */
 .lfo-shape-section {
   display: flex;
@@ -743,53 +775,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.lfo-led-row {
-  display: flex;
-  gap: 8px;
-}
-
-.lfo-led-indicator {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.lfo-led-indicator:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 2px;
-  padding: 1px;
-}
-
-.lfo-led-indicator .led-square {
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
-  background: #222222;
-  border: 1px solid #444444;
-  transition: all 0.3s ease;
-}
-
-.lfo-led-indicator.active .led-square {
-  background: radial-gradient(circle at 30% 30%, #ff6666, #ff2222);
-  border-color: #ff4444;
-  box-shadow: 0 0 6px rgba(255, 34, 34, 0.6);
-}
-
-.lfo-led-indicator label {
-  font-size: 6px;
-  color: #aaaaaa;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.lfo-led-indicator.active label {
-  color: #ffffff;
+  min-width: 70px;
 }
 
 /* LFO Frequency and Sync Controls */

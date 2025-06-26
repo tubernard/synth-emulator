@@ -40,11 +40,19 @@ export interface SynthParams {
     release: number;
   };
   // LFO parameters
-  lfo: {
+  lfo1: {
     rate: number;
     amount: number;
-    destination: "pitch" | "filter" | "amp";
+    destination: "cutoff" | "osc1-freq" | "osc2-freq";
     waveform: OscillatorType;
+    active: boolean;
+  };
+  lfo2: {
+    rate: number;
+    amount: number;
+    destination: "cutoff" | "osc1-freq" | "osc2-freq";
+    waveform: OscillatorType;
+    active: boolean;
   };
   // Effects parameters
   effects: {
@@ -93,11 +101,19 @@ export class SynthEngine {
       sustain: 0.7,
       release: 1.0,
     },
-    lfo: {
+    lfo1: {
       rate: 1,
       amount: 0,
-      destination: "pitch",
+      destination: "cutoff",
       waveform: "sine",
+      active: false,
+    },
+    lfo2: {
+      rate: 1,
+      amount: 0,
+      destination: "cutoff",
+      waveform: "sine",
+      active: false,
     },
     effects: {
       reverb: 0.2,
@@ -119,6 +135,11 @@ export class SynthEngine {
     this.effects.connect(this.masterVolume);
     this.masterVolume.connect(this.volumeAnalyzer);
     this.volumeAnalyzer.toDestination();
+
+    // Start Transport for LFO timing
+    if (Tone.Transport.state !== "started") {
+      Tone.Transport.start();
+    }
 
     // Initialize voices
     this.initializeVoices();
@@ -204,9 +225,14 @@ export class SynthEngine {
             (this.params.ampEnv as any)[param] = value;
           }
           break;
-        case "lfo":
-          if (param in this.params.lfo) {
-            (this.params.lfo as any)[param] = value;
+        case "lfo1":
+          if (param in this.params.lfo1) {
+            (this.params.lfo1 as any)[param] = value;
+          }
+          break;
+        case "lfo2":
+          if (param in this.params.lfo2) {
+            (this.params.lfo2 as any)[param] = value;
           }
           break;
         case "effects":

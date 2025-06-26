@@ -8,7 +8,12 @@ export class Voice {
   private noise: any = null; // Use 'any' type for Tone.Noise to avoid type issues
   private filter: Tone.Filter;
   private ampEnv: Tone.AmplitudeEnvelope;
-  private lfo: Tone.LFO;
+  private lfo1: Tone.LFO;
+  private lfo2: Tone.LFO;
+  private lfoUpdateLoop: Tone.Loop;
+  private baseCutoff: number;
+  private baseOsc1Freq: number;
+  private baseOsc2Freq: number;
   private osc1Gain: Tone.Gain;
   private osc2Gain: Tone.Gain;
   private subGain: Tone.Gain;
@@ -39,11 +44,28 @@ export class Voice {
       release: params.ampEnv.release,
     });
 
-    // Create LFO
-    this.lfo = new Tone.LFO({
-      type: params.lfo.waveform,
-      frequency: params.lfo.rate,
+    // Create LFOs with practical frequency range (0.1 to 10 Hz)
+    const lfo1FreqHz = 0.1 * Math.pow(10 / 0.1, params.lfo1.rate / 99);
+    const lfo2FreqHz = 0.1 * Math.pow(10 / 0.1, params.lfo2.rate / 99);
+
+    this.lfo1 = new Tone.LFO({
+      type: params.lfo1.waveform,
+      frequency: lfo1FreqHz,
     });
+    this.lfo2 = new Tone.LFO({
+      type: params.lfo2.waveform,
+      frequency: lfo2FreqHz,
+    });
+
+    // Store base parameter values for modulation
+    this.baseCutoff = params.filter.cutoff;
+    this.baseOsc1Freq = 440; // Will be updated when note is played
+    this.baseOsc2Freq = 440; // Will be updated when note is played
+
+    // Create LFO update loop for stable modulation
+    this.lfoUpdateLoop = new Tone.Loop((_time) => {
+      this.updateLFOModulation();
+    }, "32n"); // Update every 32nd note (fast enough for smooth modulation)
 
     // Create gain stages
     this.osc1Gain = new Tone.Gain(0.5);
@@ -65,8 +87,12 @@ export class Voice {
     this.filter.connect(this.ampEnv);
     this.ampEnv.connect(this.output);
 
-    // Start LFO
-    this.lfo.start();
+    // Start LFOs
+    this.lfo1.start();
+    this.lfo2.start();
+
+    // Start LFO modulation loop
+    this.lfoUpdateLoop.start();
   }
 
   noteOn(note: string | number, velocity: number = 0.8) {
@@ -120,22 +146,30 @@ export class Voice {
           ? "square"
           : this.params.osc2.waveform;
 
-      // Create oscillators
+      // Create oscillators with frequency bounds checking
+      const clampedOsc1Freq = Math.max(20, osc1Freq);
+      const clampedOsc2Freq = Math.max(20, osc2Freq * Math.pow(2, slopDetune / 1200));
+      
       this.osc1 = new Tone.Oscillator({
         type: osc1Waveform as OscillatorType,
-        frequency: osc1Freq,
+        frequency: clampedOsc1Freq,
       });
 
       this.osc2 = new Tone.Oscillator({
         type: osc2Waveform as OscillatorType,
-        frequency: osc2Freq * Math.pow(2, slopDetune / 1200),
+        frequency: clampedOsc2Freq,
       });
+
+      // Store base frequencies for LFO modulation
+      this.baseOsc1Freq = clampedOsc1Freq;
+      this.baseOsc2Freq = clampedOsc2Freq;
 
       // Create sub oscillator if enabled
       if (this.params.osc1.subOctave > 0) {
+        const clampedSubFreq = Math.max(10, clampedOsc1Freq / 2);
         this.subOsc = new Tone.Oscillator({
           type: "square",
-          frequency: osc1Freq / 2,
+          frequency: clampedSubFreq,
         });
         this.subOsc.connect(this.subGain);
         this.subOsc.start();
@@ -159,7 +193,9 @@ export class Voice {
         // Implement oscillator sync simulation
         if (this.osc1 && this.osc2) {
           const syncRatio = 2 + this.params.osc2.frequency / 6;
-          this.osc2.frequency.value = osc1Freq * syncRatio;
+          const clampedSyncFreq = Math.max(20, clampedOsc1Freq * syncRatio);
+          this.osc2.frequency.value = clampedSyncFreq;
+          this.baseOsc2Freq = clampedSyncFreq;
         }
       }
 
@@ -238,22 +274,95 @@ export class Voice {
     }
   }
 
-  private applyLFOModulation() {
-    if (this.params.lfo.amount === 0) return;
+  private updateLFOModulation() {
+    // Get current LFO values using manual calculation for stable modulation
+    // This provides artifact-free modulation without conflicts
+    const now = Tone.Transport.seconds;
 
-    switch (this.params.lfo.destination) {
-      case "pitch":
-        if (this.osc1) this.lfo.connect(this.osc1.frequency);
-        if (this.osc2) this.lfo.connect(this.osc2.frequency);
-        break;
-      case "filter":
-        this.lfo.connect(this.filter.frequency);
-        break;
-      case "amp":
-        // Connect to the amplitude envelope's gain
-        this.lfo.connect(this.ampEnv);
-        break;
+    // Get frequency values as numbers
+    const lfo1Freq = Number(this.lfo1.frequency.value);
+    const lfo2Freq = Number(this.lfo2.frequency.value);
+
+    // Simple sine wave calculation for LFO modulation
+    const lfo1Value = this.params.lfo1.active
+      ? Math.sin(now * lfo1Freq * 2 * Math.PI)
+      : 0;
+    const lfo2Value = this.params.lfo2.active
+      ? Math.sin(now * lfo2Freq * 2 * Math.PI)
+      : 0;
+
+    // Apply LFO1 modulation if active
+    if (this.params.lfo1.active && this.params.lfo1.amount > 0) {
+      const amount = this.params.lfo1.amount; // Amount is already normalized 0-1 from interface
+
+      switch (this.params.lfo1.destination) {
+        case "cutoff":
+          // Modulate filter cutoff (safe range: ±500Hz)
+          const cutoffMod = lfo1Value * amount * 500;
+          const newCutoff = Math.max(
+            20,
+            Math.min(20000, this.baseCutoff + cutoffMod)
+          );
+          this.filter.frequency.value = newCutoff;
+          break;
+        case "osc1-freq":
+          if (this.osc1) {
+            // Modulate OSC1 frequency (safe range: ±10Hz)
+            const freqMod = lfo1Value * amount * 10;
+            const newFreq = Math.max(20, this.baseOsc1Freq + freqMod);
+            this.osc1.frequency.value = newFreq;
+          }
+          break;
+        case "osc2-freq":
+          if (this.osc2) {
+            // Modulate OSC2 frequency (safe range: ±10Hz)
+            const freqMod = lfo1Value * amount * 10;
+            const newFreq = Math.max(20, this.baseOsc2Freq + freqMod);
+            this.osc2.frequency.value = newFreq;
+          }
+          break;
+      }
     }
+
+    // Apply LFO2 modulation if active (only if not conflicting with LFO1)
+    if (
+      this.params.lfo2.active &&
+      this.params.lfo2.amount > 0 &&
+      this.params.lfo2.destination !== this.params.lfo1.destination
+    ) {
+      const amount = this.params.lfo2.amount; // Amount is already normalized 0-1 from interface
+
+      switch (this.params.lfo2.destination) {
+        case "cutoff":
+          const cutoffMod = lfo2Value * amount * 500;
+          const newCutoff = Math.max(
+            20,
+            Math.min(20000, this.baseCutoff + cutoffMod)
+          );
+          this.filter.frequency.value = newCutoff;
+          break;
+        case "osc1-freq":
+          if (this.osc1) {
+            const freqMod = lfo2Value * amount * 10;
+            const newFreq = Math.max(20, this.baseOsc1Freq + freqMod);
+            this.osc1.frequency.value = newFreq;
+          }
+          break;
+        case "osc2-freq":
+          if (this.osc2) {
+            const freqMod = lfo2Value * amount * 10;
+            const newFreq = Math.max(20, this.baseOsc2Freq + freqMod);
+            this.osc2.frequency.value = newFreq;
+          }
+          break;
+      }
+    }
+  }
+
+  private applyLFOModulation() {
+    // This method now just updates base values and starts modulation
+    // The actual modulation is handled by updateLFOModulation() in the loop
+    this.baseCutoff = this.params.filter.cutoff;
   }
 
   updateParams(newParams: SynthParams) {
@@ -277,7 +386,10 @@ export class Voice {
         baseFreq *
         Math.pow(2, newParams.osc1.frequency / 12) *
         Math.pow(2, newParams.osc1.fine / 1200);
-      this.osc1.frequency.value = osc1Freq;
+      // Ensure frequency is within valid range (minimum 20Hz to prevent errors)
+      const clampedOsc1Freq = Math.max(20, osc1Freq);
+      this.osc1.frequency.value = clampedOsc1Freq;
+      this.baseOsc1Freq = clampedOsc1Freq;
     }
 
     // Handle sub oscillator - create if needed, update level
@@ -295,9 +407,11 @@ export class Voice {
         Math.pow(2, newParams.osc1.frequency / 12) *
         Math.pow(2, newParams.osc1.fine / 1200);
 
+      // Ensure sub oscillator frequency is valid (minimum 10Hz)
+      const clampedSubFreq = Math.max(10, osc1Freq / 2);
       this.subOsc = new Tone.Oscillator({
         type: "square", // Sub is typically a square wave
-        frequency: osc1Freq / 2, // One octave down
+        frequency: clampedSubFreq, // One octave down
       });
       this.subOsc.connect(this.subGain);
       this.subOsc.start();
@@ -311,7 +425,9 @@ export class Voice {
         baseFreq *
         Math.pow(2, newParams.osc1.frequency / 12) *
         Math.pow(2, newParams.osc1.fine / 1200);
-      this.subOsc.frequency.value = osc1Freq / 2;
+      // Ensure sub oscillator frequency is valid (minimum 10Hz)
+      const clampedSubFreq = Math.max(10, osc1Freq / 2);
+      this.subOsc.frequency.value = clampedSubFreq;
     }
 
     // Handle noise - create if needed, update level
@@ -357,10 +473,16 @@ export class Voice {
           baseFreq *
           Math.pow(2, newParams.osc1.frequency / 12) *
           Math.pow(2, newParams.osc1.fine / 1200);
-        this.osc2.frequency.value = osc1Freq * syncRatio;
+        // Ensure synced frequency is valid (minimum 20Hz)
+        const clampedSyncFreq = Math.max(20, osc1Freq * syncRatio);
+        this.osc2.frequency.value = clampedSyncFreq;
+        this.baseOsc2Freq = clampedSyncFreq;
       } else {
         // No sync, use normal frequency
-        this.osc2.frequency.value = osc2Freq;
+        // Ensure frequency is valid (minimum 20Hz)
+        const clampedOsc2Freq = Math.max(20, osc2Freq);
+        this.osc2.frequency.value = clampedOsc2Freq;
+        this.baseOsc2Freq = clampedOsc2Freq;
       }
     }
 
@@ -369,15 +491,28 @@ export class Voice {
     this.filter.frequency.value = newParams.filter.cutoff;
     this.filter.Q.value = newParams.filter.resonance;
 
+    // Update base cutoff for LFO modulation
+    this.baseCutoff = newParams.filter.cutoff;
+
     // Update envelopes
     this.ampEnv.attack = newParams.ampEnv.attack;
     this.ampEnv.decay = newParams.ampEnv.decay;
     this.ampEnv.sustain = newParams.ampEnv.sustain;
     this.ampEnv.release = newParams.ampEnv.release;
 
-    // Update LFO
-    this.lfo.frequency.value = newParams.lfo.rate;
-    this.lfo.type = newParams.lfo.waveform;
+    // Update LFOs - convert rate from 0-99 to Hz (0.1 to 10 Hz) - practical range
+    // Using logarithmic scaling for musical frequency response
+    const lfo1FreqHz = 0.1 * Math.pow(10 / 0.1, newParams.lfo1.rate / 99); // 0.1 to 10 Hz
+    const lfo2FreqHz = 0.1 * Math.pow(10 / 0.1, newParams.lfo2.rate / 99); // 0.1 to 10 Hz
+
+    // Smooth frequency changes to prevent artifacts
+    this.lfo1.frequency.rampTo(lfo1FreqHz, 0.1);
+    this.lfo1.type = newParams.lfo1.waveform;
+    this.lfo2.frequency.rampTo(lfo2FreqHz, 0.1);
+    this.lfo2.type = newParams.lfo2.waveform;
+
+    // Reapply LFO modulation with updated parameters
+    this.applyLFOModulation();
   }
 
   isActive(): boolean {
@@ -423,7 +558,9 @@ export class Voice {
     // Dispose other components
     this.filter.dispose();
     this.ampEnv.dispose();
-    this.lfo.dispose();
+    this.lfo1.dispose();
+    this.lfo2.dispose();
+    this.lfoUpdateLoop.dispose();
     this.output.dispose();
   }
 }

@@ -36,6 +36,14 @@ const DISPLAY_SCALES = {
     max: 250,
     convert: (displayValue: number) => displayValue,
   },
+  lfoFreq: {
+    min: 0,
+    max: 99,
+    convert: (displayValue: number) => {
+      // Convert 0-99 to 0.022-500 Hz logarithmically
+      return 0.022 * Math.pow(500 / 0.022, displayValue / 99);
+    },
+  },
 };
 
 interface LFOState {
@@ -206,6 +214,17 @@ function updateDisplay(knobId: string, value: number, displayScale: string) {
     case "bpm":
       displayValue = Math.round(value).toString();
       break;
+    case "lfoFreq":
+      // Convert 0-99 to Hz (0.1 to 10 Hz - practical range) and display with appropriate precision
+      const freqHz = 0.1 * Math.pow(10 / 0.1, value / 99);
+      if (freqHz < 1) {
+        displayValue = freqHz.toFixed(2); // Show 2 decimal places for sub-Hz
+      } else if (freqHz < 10) {
+        displayValue = freqHz.toFixed(1); // Show 1 decimal place for < 10 Hz
+      } else {
+        displayValue = Math.round(freqHz).toString(); // Round for >= 10 Hz
+      }
+      break;
     default:
       displayValue = (Math.round(value * 100) / 100).toString();
       break;
@@ -352,10 +371,10 @@ function updateSynthParameter(
       // New unified LFO controls - route to current LFO
       if (param === "frequency") {
         lfoStates[currentLFO].frequency = value;
-        synth.updateParameter(`lfo${currentLFO}`, "frequency", processedValue);
+        synth.updateParameter(`lfo${currentLFO}`, "rate", processedValue);
       } else if (param === "amount") {
         lfoStates[currentLFO].amount = value;
-        lfoStates[currentLFO].active = value > 0;
+        // Don't auto-activate LFO based on amount - only LED buttons control on/off
         synth.updateParameter(`lfo${currentLFO}`, "amount", processedValue);
       }
       break;
@@ -717,19 +736,35 @@ function setupWaveformVisualization(synth: SynthEngine) {
 }
 
 function setupLFOControls(synth: SynthEngine) {
-  // LFO Selection Buttons (1 & 2)
+  // LFO Selection Buttons - Toggle LFO on/off when clicked
   const lfoSelectButtons = document.querySelectorAll(".lfo-select-btn");
   lfoSelectButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const element = button as HTMLElement;
       const lfoNumber = parseInt(element.dataset.lfo || "1");
 
-      // Update button states
-      lfoSelectButtons.forEach((btn) => btn.classList.remove("active"));
-      element.classList.add("active");
-
-      // Switch current LFO and restore its state
+      // Switch to editing this LFO
       currentLFO = lfoNumber;
+
+      // Toggle the LFO active state when button is clicked
+      lfoStates[lfoNumber].active = !lfoStates[lfoNumber].active;
+
+      // Check for parameter conflicts and resolve them
+      if (lfoStates[lfoNumber].active) {
+        resolveParameterConflicts(lfoNumber);
+      }
+
+      // Update LED visual state
+      updateLFOLEDState(lfoNumber);
+
+      // Update synth parameter
+      synth.updateParameter(
+        `lfo${lfoNumber}`,
+        "active",
+        lfoStates[lfoNumber].active ? 1 : 0
+      );
+
+      // Restore LFO state to show its settings in the knobs
       restoreLFOState(currentLFO);
 
       // Update main display
@@ -740,12 +775,14 @@ function setupLFOControls(synth: SynthEngine) {
     });
   });
 
+  // Remove the LED click handlers since we want button control only
+
   // LFO Shape Button
   const shapeButton = document.querySelector(".lfo-shape-btn");
   if (shapeButton) {
     shapeButton.addEventListener("click", () => {
       // Cycle through shapes
-      const shapes = ["triangle", "sawtooth", "square", "random"];
+      const shapes = ["triangle", "sawtooth", "square", "sine"];
       const currentShapeIndex = shapes.indexOf(lfoStates[currentLFO].shape);
       const nextShapeIndex = (currentShapeIndex + 1) % shapes.length;
       const newShape = shapes[nextShapeIndex];
@@ -755,25 +792,13 @@ function setupLFOControls(synth: SynthEngine) {
       updateShapeLEDs(newShape);
 
       // Update synth
-      synth.updateParameter(`lfo${currentLFO}`, "shape", newShape);
+      synth.updateParameter(`lfo${currentLFO}`, "waveform", newShape);
       updateMainDisplay(`LFO ${currentLFO} SHAPE`, newShape.toUpperCase());
     });
   }
 
-  // LFO Shape LED Indicators (for visual feedback)
-  const shapeLEDs = document.querySelectorAll(".lfo-led-indicator");
-  shapeLEDs.forEach((led) => {
-    led.addEventListener("click", () => {
-      const element = led as HTMLElement;
-      const shape = element.dataset.shape;
-      if (shape) {
-        lfoStates[currentLFO].shape = shape;
-        updateShapeLEDs(shape);
-        synth.updateParameter(`lfo${currentLFO}`, "shape", shape);
-        updateMainDisplay(`LFO ${currentLFO} SHAPE`, shape.toUpperCase());
-      }
-    });
-  });
+  // LFO Shape LED Indicators are now display-only (no click handlers)
+  // Shape selection is handled only by the SHAPE button above
 
   // LFO Sync Buttons
   const syncButtons = document.querySelectorAll(".lfo-sync-btn");
@@ -815,34 +840,24 @@ function setupLFOControls(synth: SynthEngine) {
       const newDest = lfoDestinations[currentDestIndex];
 
       lfoStates[currentLFO].destination = newDest;
+
+      // Check for conflicts if this LFO is active
+      if (lfoStates[currentLFO].active) {
+        resolveParameterConflicts(currentLFO);
+      }
+
       updateDestinationDisplay(newDest);
+      synth.updateParameter(`lfo${currentLFO}`, "destination", newDest);
       updateMainDisplay(`LFO ${currentLFO} DEST`, newDest.toUpperCase());
     });
   }
 
-  // Update knob handling for LFO frequency and amount
-  const frequencyKnob = document.getElementById("lfo-frequency");
-  const amountKnob = document.getElementById("lfo-amount");
-
-  if (frequencyKnob) {
-    frequencyKnob.addEventListener("valueChanged", (e: any) => {
-      const value = e.detail.value;
-      lfoStates[currentLFO].frequency = value;
-      synth.updateParameter(`lfo${currentLFO}`, "frequency", value / 99);
-    });
-  }
-
-  if (amountKnob) {
-    amountKnob.addEventListener("valueChanged", (e: any) => {
-      const value = e.detail.value;
-      lfoStates[currentLFO].amount = value;
-      lfoStates[currentLFO].active = value > 0;
-      synth.updateParameter(`lfo${currentLFO}`, "amount", value / 99);
-    });
-  }
-
-  // Initialize with LFO 1 state
+  // Initialize with LFO 1 selected and restore states for both LFOs
+  currentLFO = 1;
   restoreLFOState(1);
+
+  // Also update the state for LFO 2 LED
+  updateLFOLEDState(2);
 }
 
 function restoreLFOState(lfoNumber: number) {
@@ -867,19 +882,26 @@ function restoreLFOState(lfoNumber: number) {
   if (frequencyKnob) {
     frequencyKnob.dataset.value = state.frequency.toString();
     updateKnobVisual(frequencyKnob, state.frequency, 0, 99);
+    // Also update the display to show the current frequency value
+    updateDisplay("lfo-frequency", state.frequency, "lfoFreq");
   }
 
   if (amountKnob) {
     amountKnob.dataset.value = state.amount.toString();
     updateKnobVisual(amountKnob, state.amount, 0, 99);
+    // Also update the display to show the current amount value
+    updateDisplay("lfo-amount", state.amount, "percent");
   }
 
   // Update destination display
   updateDestinationDisplay(state.destination);
+
+  // Update LFO LED indicator state
+  updateLFOLEDState(lfoNumber);
 }
 
 function updateShapeLEDs(activeShape: string) {
-  const leds = document.querySelectorAll(".lfo-led-indicator");
+  const leds = document.querySelectorAll(".led-indicator[data-shape]");
   leds.forEach((led) => {
     const element = led as HTMLElement;
     if (element.dataset.shape === activeShape) {
@@ -1073,4 +1095,39 @@ function setupVolumeMeter(synth: SynthEngine) {
       cancelAnimationFrame(animationId);
     }
   };
+}
+
+// Helper function to resolve parameter conflicts between LFOs
+function resolveParameterConflicts(activatedLFONumber: number) {
+  const activatedDestination = lfoStates[activatedLFONumber].destination;
+
+  // Check if the other LFO is controlling the same parameter
+  const otherLFONumber = activatedLFONumber === 1 ? 2 : 1;
+  if (
+    lfoStates[otherLFONumber].active &&
+    lfoStates[otherLFONumber].destination === activatedDestination
+  ) {
+    // Turn off the other LFO since only one can control a parameter
+    lfoStates[otherLFONumber].active = false;
+    updateLFOLEDState(otherLFONumber);
+
+    // Update main display if the deactivated LFO was the current one
+    if (currentLFO === otherLFONumber) {
+      updateMainDisplay(`LFO ${otherLFONumber}`, "OFF");
+    }
+  }
+}
+
+// Helper function to update LFO LED visual state
+function updateLFOLEDState(lfoNumber: number) {
+  const led = document.querySelector(
+    `[data-lfo="${lfoNumber}"].lfo-led-indicator`
+  );
+  if (led) {
+    if (lfoStates[lfoNumber].active) {
+      led.classList.add("active");
+    } else {
+      led.classList.remove("active");
+    }
+  }
 }
