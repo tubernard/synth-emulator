@@ -110,11 +110,9 @@ function setupKnobs(synth: SynthEngine) {
     const initialValue = parseFloat(element.dataset.value || "0");
     const displayScale = element.dataset.displayScale || "raw";
 
-    // Set initial rotation and display
     updateKnobVisual(element, initialValue, min, max);
     updateDisplay(element.id, initialValue, displayScale);
 
-    // Initialize synth parameter to match UI value
     updateSynthParameter(synth, element.id, initialValue, displayScale);
 
     element.addEventListener("mousedown", (e) => {
@@ -133,7 +131,6 @@ function setupKnobs(synth: SynthEngine) {
         cancelAnimationFrame(animationFrameId);
       }
 
-      // Schedule update on next frame for smooth animation
       animationFrameId = requestAnimationFrame(() => {
         const deltaY = startY - e.clientY;
         const sensitivity = 0.005;
@@ -184,12 +181,10 @@ function updateDisplay(knobId: string, value: number, displayScale: string) {
 
   if (!paramNameElement || !paramValueElement) return;
 
-  // Update parameter name
   const [section, param] = knobId.split("-");
   const displayName = getDisplayName(section, param);
   paramNameElement.textContent = displayName;
 
-  // Update parameter value based on scale
   let displayValue: string;
 
   switch (displayScale) {
@@ -390,10 +385,8 @@ function updateSynthParameter(
 }
 
 function setupWaveformButtons(synth: SynthEngine) {
-  // Setup shape buttons for cycling through waveforms
   const shapeButtons = document.querySelectorAll(".shape-btn");
 
-  // Define waveforms in cycle order
   const waveforms = ["sawtooth", "triangle", "square", "pulse"];
 
   shapeButtons.forEach((button) => {
@@ -407,10 +400,8 @@ function setupWaveformButtons(synth: SynthEngine) {
       const nextIndex = (currentIndex + 1) % waveforms.length;
       const nextWave = waveforms[nextIndex];
 
-      // Update button's current wave
       element.dataset.currentWave = nextWave;
 
-      // Update LED indicators for this oscillator
       const oscContainer =
         element.closest(".osc-row") ||
         element.closest(".shape-waveform-centered");
@@ -427,10 +418,8 @@ function setupWaveformButtons(synth: SynthEngine) {
         });
       }
 
-      // Update synth parameter
       synth.updateParameter(osc, "waveform", nextWave);
 
-      // Update display
       updateDisplay(`${osc}-waveform`, 0, "raw");
       const paramNameElement = document.getElementById("param-name");
       const paramValueElement = document.getElementById("param-value");
@@ -530,7 +519,6 @@ function setupWaveformVisualization(synth: SynthEngine) {
   const peakLevels = new Array(64).fill(0);
   let energyHistory = new Array(10).fill(0);
 
-  // Create off-screen canvas for glow effects
   const glowCanvas = document.createElement("canvas");
   glowCanvas.width = canvas.width;
   glowCanvas.height = canvas.height;
@@ -852,11 +840,9 @@ function setupLFOControls(synth: SynthEngine) {
     });
   }
 
-  // Initialize with LFO 1 selected and restore states for both LFOs
   currentLFO = 1;
   restoreLFOState(1);
 
-  // Also update the state for LFO 2 LED
   updateLFOLEDState(2);
 }
 

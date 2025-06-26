@@ -2,44 +2,39 @@ import * as Tone from "tone";
 import { Voice } from "./Voice.ts";
 import { Effects } from "./Effects.ts";
 
-// Custom waveform type that includes Prophet Rev2 waveforms
 export type ProphetWaveform = OscillatorType | "pulse";
 
 export interface SynthParams {
-  // Oscillator parameters
   osc1: {
-    frequency: number; // Semitones -24 to +24
-    fine: number; // Fine tuning -50 to +50 cents
+    frequency: number;
+    fine: number;
     waveform: ProphetWaveform;
-    shape: number; // Shape amount 0-99
-    shapeMod: number; // Shape modulation amount 0-99
-    subOctave: number; // Sub oscillator level 0-99 (one octave down)
-    noise: number; // Noise level 0-99
+    shape: number;
+    shapeMod: number;
+    subOctave: number;
+    noise: number;
   };
   osc2: {
-    frequency: number; // Semitones -24 to +24
-    fine: number; // Fine tuning -50 to +50 cents
+    frequency: number;
+    fine: number;
     waveform: ProphetWaveform;
-    shape: number; // Shape amount 0-99
-    shapeMod: number; // Shape modulation amount 0-99
-    slop: number; // Oscillator slop 0-99
-    sync: number; // Oscillator sync 0 or 1
-    mix: number; // Mix between OSC1 and OSC2 0-1
+    shape: number;
+    shapeMod: number;
+    slop: number;
+    sync: number;
+    mix: number;
   };
-  // Filter parameters
   filter: {
     cutoff: number;
     resonance: number;
     type: BiquadFilterType;
   };
-  // Envelope parameters
   ampEnv: {
     attack: number;
     decay: number;
     sustain: number;
     release: number;
   };
-  // LFO parameters
   lfo1: {
     rate: number;
     amount: number;
@@ -54,7 +49,6 @@ export interface SynthParams {
     waveform: OscillatorType;
     active: boolean;
   };
-  // Effects parameters
   effects: {
     reverb: number;
     delay: number;
@@ -67,7 +61,7 @@ export class SynthEngine {
   private maxVoices = 8;
   private currentVoice = 0;
   private masterVolume: Tone.Volume;
-  private volumeAnalyzer: Tone.Analyser; // Volume analyzer for final output metering
+  private volumeAnalyzer: Tone.Analyser;
   private effects: Effects;
 
   public params: SynthParams = {
@@ -88,10 +82,10 @@ export class SynthEngine {
       shapeMod: 0,
       slop: 0,
       sync: 0,
-      mix: 0.5, // 50% mix by default
+      mix: 0.5,
     },
     filter: {
-      cutoff: 632, // ~0.5 position on logarithmic scale (20Hz to 20kHz)
+      cutoff: 632,
       resonance: 0,
       type: "lowpass",
     },
@@ -131,17 +125,14 @@ export class SynthEngine {
     });
     this.effects = new Effects();
 
-    // Setup signal chain: effects -> masterVolume -> volumeAnalyzer -> destination
     this.effects.connect(this.masterVolume);
     this.masterVolume.connect(this.volumeAnalyzer);
     this.volumeAnalyzer.toDestination();
 
-    // Start Transport for LFO timing
     if (Tone.Transport.state !== "started") {
       Tone.Transport.start();
     }
 
-    // Initialize voices
     this.initializeVoices();
   }
 
@@ -163,7 +154,6 @@ export class SynthEngine {
 
   noteOn(note: string | number, velocity: number = 0.8) {
     try {
-      // Stop any existing voice playing this note
       const existingVoice = this.voices.find(
         (v) => v.currentNote === note && v.isActive()
       );
@@ -171,7 +161,6 @@ export class SynthEngine {
         existingVoice.noteOff();
       }
 
-      // Find an available voice or steal the oldest one
       let voice = this.voices.find((v) => !v.isActive());
 
       if (!voice) {
@@ -249,29 +238,24 @@ export class SynthEngine {
           break;
       }
 
-      // Update all voices with new parameters
       this.voices.forEach((voice) => voice.updateParams(this.params));
     } catch (error) {
       console.error("Error updating parameter:", error);
     }
   }
 
-  // Method to check if any notes are currently playing
   hasActiveVoices(): boolean {
     return this.voices.some((v) => v.isActive());
   }
 
-  // Get the analyzer node for spectrum visualization
   getAnalyzer(): Tone.Analyser {
     return this.effects.analyzer;
   }
 
-  // Get the volume analyzer node for volume metering
   getVolumeAnalyzer(): Tone.Analyser {
     return this.volumeAnalyzer;
   }
 
-  // Get parameter value - used for waveform visualization
   getParameter(section: string, param: string): number | string {
     try {
       switch (section) {
@@ -289,7 +273,6 @@ export class SynthEngine {
           break;
         case "filter":
           if (param === "cutoff") {
-            // Convert the frequency value to a 0-1 range
             const min = 20;
             const max = 20000;
             const freq = this.params.filter.cutoff;
@@ -301,8 +284,8 @@ export class SynthEngine {
           if (param === "type") return this.params.filter.type;
           break;
         case "mixer":
-          if (param === "osc1Level") return 0.7; // Default value (not stored in params yet)
-          if (param === "osc2Level") return 0.3; // Default value (not stored in params yet)
+          if (param === "osc1Level") return 0.7;
+          if (param === "osc2Level") return 0.3;
           break;
       }
       return 0;
@@ -313,7 +296,6 @@ export class SynthEngine {
   }
 
   setMasterVolume(volume: number) {
-    // Map 0-1 range to practical dB range (-40dB to +6dB)
     const dbValue = -40 + volume * 46;
     this.masterVolume.volume.value = dbValue;
   }
