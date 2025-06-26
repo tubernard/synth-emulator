@@ -29,12 +29,6 @@ npm run build
 npm run preview
 ```
 
-### Deploy to GitHub Pages
-
-```bash
-npm run deploy
-```
-
 Open your browser to localhost:5173 (dev) or localhost:4173 (preview) and start playing!
 
 ## How to Use
@@ -53,17 +47,6 @@ Requires a modern browser with Web Audio API support.
 
 ### GitHub Pages (Automatic)
 
-Push to GitHub and enable GitHub Actions in repository settings. The workflow automatically builds and deploys on every push.
-
-### Manual Deployment
-
-```bash
-npm run deploy
-```
-
-### Local Build
-
-```bash
-npm run build
-npm run preview
-```
+1. Push your code to GitHub
+2. Go to **Settings** → **Pages** → **Source**: Select "**GitHub Actions**"
+3. The workflow automatically builds and deploys on every push to main
