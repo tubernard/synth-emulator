@@ -148,8 +148,11 @@ export class Voice {
 
       // Create oscillators with frequency bounds checking
       const clampedOsc1Freq = Math.max(20, osc1Freq);
-      const clampedOsc2Freq = Math.max(20, osc2Freq * Math.pow(2, slopDetune / 1200));
-      
+      const clampedOsc2Freq = Math.max(
+        20,
+        osc2Freq * Math.pow(2, slopDetune / 1200)
+      );
+
       this.osc1 = new Tone.Oscillator({
         type: osc1Waveform as OscillatorType,
         frequency: clampedOsc1Freq,
