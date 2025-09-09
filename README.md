@@ -1,4 +1,4 @@
-# Synthesizer Emulator
+# SynthEmulator
 
 A browser-based synthesizer loosely inspired by the Sequential Prophet Rev2. Built with TypeScript and Tone.js.
 
